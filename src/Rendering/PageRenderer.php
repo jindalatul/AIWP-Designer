@@ -72,9 +72,52 @@ final class PageRenderer {
 				->render( $schema->owner_sections(), $content, $template );
 		}
 
+		return self::as_page_element( $html, (string) $this->pages->uuid( $page_id ) );
+	}
+
+	/**
+	 * The page's outermost element, carrying the class and the scope id.
+	 *
+	 * Writing <main> around a page is the natural thing to do and the
+	 * allowlist permits it, so templates do. Wrapping that in another <main>
+	 * gives a document two main landmarks: invalid HTML, and a screen reader
+	 * offering a choice of two "main" regions. Nothing looks broken, so nobody
+	 * finds it.
+	 *
+	 * When the template already provides the element, it becomes the page
+	 * element instead of being nested inside a second one. Its own classes are
+	 * kept, because the page's CSS is written against them.
+	 */
+	public static function as_page_element( string $html, string $uuid ): string {
+		$trimmed = trim( $html );
+
+		if ( preg_match( '/^<main\b([^>]*)>/i', $trimmed, $open )
+			&& 1 === preg_match_all( '/<main\b/i', $trimmed )
+			&& str_ends_with( strtolower( $trimmed ), '</main>' ) ) {
+
+			$attributes = (string) $open[1];
+
+			if ( preg_match( '/\bclass\s*=\s*(["\'])(.*?)\1/i', $attributes, $class ) ) {
+				$attributes = str_replace(
+					$class[0],
+					sprintf( 'class="aiwp-page %s"', esc_attr( trim( (string) $class[2] ) ) ),
+					$attributes
+				);
+			} else {
+				$attributes .= ' class="aiwp-page"';
+			}
+
+			return sprintf(
+				'<main%s data-aiwp-page="%s">%s',
+				rtrim( $attributes ),
+				esc_attr( $uuid ),
+				substr( $trimmed, strlen( $open[0] ) )
+			);
+		}
+
 		return sprintf(
 			'<main class="aiwp-page" data-aiwp-page="%s">%s</main>',
-			esc_attr( $this->pages->uuid( $page_id ) ),
+			esc_attr( $uuid ),
 			$html
 		);
 	}

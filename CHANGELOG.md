@@ -2,6 +2,64 @@
 
 All notable changes to AIWP Designer.
 
+## [0.11.0] — 2026-09-14
+
+The 0.10.0 release could check that a page was safe. It could not tell whether
+the page was any good, and in two places it stopped the owner editing their own
+site. This release is mostly that: things a person would have noticed, that no
+check did.
+
+### Fixed
+- **A page with a repeater could not be saved from wp-admin at all.** A
+  submitted repeater carries three things that are not rows somebody filled in:
+  the hidden template row JavaScript clones, the row counter, and sub values
+  named after their ACF field key rather than their field name. `update_value`
+  knew all three. `validate_value` knew none of them, so it counted a phantom
+  empty row and read every real row as blank — "allows at most 3 row(s)" on a
+  field holding exactly three, and "is required in row 1" on a row full of
+  text. This was true on every site the plugin has ever built. Storing content
+  in fields exists so the owner can edit it without us; that did not work.
+- **Every page ever rendered had two `<main>` landmarks**, because the renderer
+  wrapped the template's own one in a second.
+- **A template using a behavior did not always get the script that runs it.**
+  An element marked `reveal` without a matching manifest entry stayed at zero
+  opacity forever — content that was there and could not be seen. Behaviors are
+  now read from the markup, so the script always loads.
+- **A URL containing a null byte or a tab passed validation and then rendered
+  differently**, because DOMDocument truncates an attribute at the null byte
+  and the renderer does not. The validator and the browser have to read the
+  same string or the whole safety model is decoration.
+- **`page_get` returned the scoped CSS, not the CSS that was written.** Reading
+  a page and sending it back therefore polluted the stored copy a little more
+  each time.
+- **An argument in the wrong object was silently dropped.** `page.chrome` did
+  nothing and said nothing. Unknown arguments are now refused by name, nested
+  ones included.
+- **A call that changed nothing reported success.** It now says why, or does
+  the thing.
+
+### Added
+- **`site_stage`** — what stage this site is at and what comes next, so a
+  session that starts cold does not start in the middle.
+- **Design review gained the faults that make competent work look amateur**:
+  headline leading left at body settings, padding heavier on one side than the
+  other, blocks that were meant to line up and miss by a few pixels, and motion
+  that is not consistent with itself.
+- **The same call to action twice** — once in the page and once in the footer —
+  is now noticed, by comparing what actually renders.
+- **`page_look` findings are part of the step nobody can skip**, so the craft
+  report arrives with the mandatory read-back rather than beside it.
+
+### Changed
+- **"Chrome" is now "header and footer"** in every tool, prompt and screen. It
+  was our word, not the owner's.
+- **The header and footer are designed and reviewed like a page**, not treated
+  as furniture that appears by itself.
+- **Three review findings that fired on correct work were removed or narrowed.**
+  A comparison table repeating a fact is not a page repeating itself; a page
+  that chose to be quiet is not a page nobody looked at. A check people learn
+  to ignore is worse than no check.
+
 ## [0.10.0] — 2026-09-14
 
 ### Added

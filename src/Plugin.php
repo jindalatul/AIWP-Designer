@@ -75,7 +75,8 @@ final class Plugin {
 			$this->page_repository,
 			$this->version_manager,
 			$this->field_values,
-			$this->menu_renderer
+			$this->menu_renderer,
+			$this->design_repository
 		);
 		$this->page_renderer    = new PageRenderer(
 			$this->page_repository,

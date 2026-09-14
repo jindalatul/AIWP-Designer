@@ -29,7 +29,7 @@ final class DesignReviewerTest extends TestCase {
 		return '
 		.a { color: #16101b; background-color: #f8fafc; font-size: 16px; padding: 16px; border-radius: 4px; }
 		.b { font-size: 20px; margin: 32px; }
-		.c { font-size: 39px; }
+		.c { font-size: 39px; line-height: 1.1; }
 		.d:hover { color: #4d2559; }
 		.d:focus-visible { outline: 2px solid #4d2559; }
 		.e { transition: color var(--aiwp-motion-fast) var(--aiwp-motion-ease); max-width: 68ch; }
@@ -299,5 +299,206 @@ final class DesignReviewerTest extends TestCase {
 		$review = $this->review( $this->good_css() . ' .f { transition: none 0s; }' );
 
 		$this->assertNotContains( 'motion_not_shared', $this->ids( $review ) );
+	}
+
+	/**
+	 * Type gets tighter as it gets bigger. Left alone, a headline inherits the
+	 * body's leading and falls into loose separate lines — the commonest
+	 * reason a competent page still looks amateur.
+	 */
+	public function test_large_text_with_no_leading_is_noticed(): void {
+		$review = $this->review( $this->good_css() . ' .big { font-size: 48px; }' );
+
+		$this->assertContains( 'leading_not_decided', $this->ids( $review ) );
+	}
+
+	public function test_large_text_with_body_leading_is_noticed(): void {
+		$review = $this->review( $this->good_css() . ' .big { font-size: 48px; line-height: 1.6; }' );
+
+		$this->assertContains( 'leading_not_decided', $this->ids( $review ) );
+	}
+
+	public function test_large_text_with_tight_leading_is_fine(): void {
+		$review = $this->review( $this->good_css() . ' .big { font-size: 48px; line-height: 1.05; }' );
+
+		$this->assertNotContains( 'leading_not_decided', $this->ids( $review ) );
+	}
+
+	public function test_body_text_is_left_alone(): void {
+		$review = $this->review( $this->good_css() . ' .small { font-size: 17px; }' );
+
+		$this->assertNotContains( 'leading_not_decided', $this->ids( $review ) );
+	}
+
+	/** 22px above the last line and 88px below it is what nobody chose. */
+	public function test_a_block_with_far_more_space_below_than_above_is_noticed(): void {
+		$review = $this->review( $this->good_css() . ' .foot { padding-top: 22px; padding-bottom: 88px; }' );
+
+		$this->assertContains( 'padding_lopsided', $this->ids( $review ) );
+	}
+
+	public function test_even_padding_is_fine(): void {
+		$review = $this->review( $this->good_css() . ' .foot { padding: 88px 34px; }' );
+
+		$this->assertNotContains( 'padding_lopsided', $this->ids( $review ) );
+	}
+
+	/** Small differences cannot be seen and are not worth a finding. */
+	public function test_a_small_difference_is_not_worth_saying(): void {
+		$review = $this->review( $this->good_css() . ' .chip { padding-top: 4px; padding-bottom: 14px; }' );
+
+		$this->assertNotContains( 'padding_lopsided', $this->ids( $review ) );
+	}
+
+	/**
+	 * The classic near miss: a grid with a fixed first column starts its
+	 * second column at that width plus the gap, and a sibling indented by the
+	 * column width alone lands one gap short. Fourteen pixels out — too small
+	 * to look deliberate, too large to look right, invisible without measuring.
+	 */
+	public function test_a_sibling_that_lands_one_gap_short_is_noticed(): void {
+		$css = $this->good_css()
+			. ' .head { display: grid; grid-template-columns: 56px 1fr; gap: 14px; }'
+			. ' .body { margin-left: 56px; }';
+
+		$this->assertContains( 'almost_aligned', $this->ids( $this->review( $css ) ) );
+	}
+
+	public function test_a_sibling_that_meets_the_column_is_fine(): void {
+		$css = $this->good_css()
+			. ' .head { display: grid; grid-template-columns: 56px 1fr; gap: 14px; }'
+			. ' .body { margin-left: 70px; }';
+
+		$this->assertNotContains( 'almost_aligned', $this->ids( $this->review( $css ) ) );
+	}
+
+	/** Far apart is a hierarchy somebody chose, not an accident. */
+	public function test_a_deliberate_indent_is_left_alone(): void {
+		$css = $this->good_css()
+			. ' .head { display: grid; grid-template-columns: 56px 1fr; gap: 14px; }'
+			. ' .body { margin-left: 160px; }';
+
+		$this->assertNotContains( 'almost_aligned', $this->ids( $this->review( $css ) ) );
+	}
+
+	/**
+	 * A container's gutter is not an attempt to meet anything. Comparing it
+	 * against a grid column reports that 34 and 36 disagree, which is true and
+	 * means nothing.
+	 */
+	public function test_a_page_gutter_is_not_compared(): void {
+		$css = $this->good_css()
+			. ' .wrap { padding: 0 34px; }'
+			. ' .head { display: grid; grid-template-columns: 36px 1fr; gap: 0px; }';
+
+		$this->assertNotContains( 'almost_aligned', $this->ids( $this->review( $css ) ) );
+	}
+
+	/** A fluid column has no fixed edge, so there is nothing to say. */
+	public function test_a_minmax_column_says_nothing(): void {
+		$css = $this->good_css()
+			. ' .head { display: grid; grid-template-columns: minmax(180px,22ch) 1fr; gap: 14px; }'
+			. ' .body { margin-left: 190px; }';
+
+		$this->assertNotContains( 'almost_aligned', $this->ids( $this->review( $css ) ) );
+	}
+
+	/**
+	 * check_motion already stands down when a site chose stillness on purpose.
+	 * Loudness is the same thing one property over: a survey-report site whose
+	 * personality says nothing shouts does not want a 90px headline, and
+	 * telling it to find one is taste overruling a decision the site made.
+	 */
+	public function test_a_site_that_said_it_is_quiet_is_not_told_to_shout(): void {
+		$loud = new DesignSystem(
+			array_merge(
+				DesignSystem::defaults()->tokens(),
+				array(
+					'style' => array(
+						'personality' => 'Technical and specific, like a survey report. Nothing shouts.',
+						'layout'      => 'A dense data column beside an annotation margin.',
+					),
+				)
+			)
+		);
+
+		$markup = '<h1>A</h1><figure><img src="/x.png" alt="A diagram"></figure>';
+		$review = ( new DesignReviewer( '.a{font-size:16px} .b{font-size:20px} .c{font-size:30px}', $markup, $loud, '', null ) )->review();
+
+		$this->assertNotContains( 'timid_type', array_column( $review['findings'], 'id' ) );
+	}
+
+	/**
+	 * Quiet type and nothing to look at is not restraint, it is a page nobody
+	 * designed. Letting the written decision excuse both silences the one
+	 * check that would have said so.
+	 */
+	public function test_quiet_plus_nothing_to_look_at_is_still_told(): void {
+		$quiet = new DesignSystem(
+			array_merge(
+				DesignSystem::defaults()->tokens(),
+				array( 'style' => array( 'personality' => 'Technical. Nothing shouts.' ) )
+			)
+		);
+
+		$review = ( new DesignReviewer( '.a{font-size:16px} .b{font-size:20px} .c{font-size:30px}', '<h1>A</h1><p>b</p>', $quiet, '', null ) )->review();
+
+		$this->assertContains( 'timid_type', array_column( $review['findings'], 'id' ) );
+	}
+
+	/** The imagery decision is a decision like any other. */
+	public function test_a_page_with_no_image_on_a_site_built_on_images(): void {
+		$visual = new DesignSystem(
+			array_merge(
+				DesignSystem::defaults()->tokens(),
+				array( 'style' => array( 'imagery' => 'Annotated photographs of the work, and diagrams of systems.' ) )
+			)
+		);
+
+		$review = ( new DesignReviewer( '.a{color:#16101b}', '<h1>A</h1><p>Words only.</p>', $visual, '', null ) )->review();
+
+		$this->assertContains( 'nothing_to_look_at', array_column( $review['findings'], 'id' ) );
+	}
+
+	public function test_a_site_that_said_it_uses_no_imagery_is_left_alone(): void {
+		$none = new DesignSystem(
+			array_merge(
+				DesignSystem::defaults()->tokens(),
+				array( 'style' => array( 'imagery' => 'None. Everything that would be a picture is set as type instead.' ) )
+			)
+		);
+
+		$review = ( new DesignReviewer( '.a{color:#16101b}', '<h1>A</h1><p>Words only.</p>', $none, '', null ) )->review();
+
+		$this->assertNotContains( 'nothing_to_look_at', array_column( $review['findings'], 'id' ) );
+	}
+
+	public function test_a_site_that_said_nothing_still_gets_told(): void {
+		$review = ( new DesignReviewer( '.a{font-size:16px} .b{font-size:20px} .c{font-size:30px}', '<h1>A</h1>', $this->system(), '', null ) )->review();
+
+		$this->assertContains( 'timid_type', array_column( $review['findings'], 'id' ) );
+	}
+
+	/**
+	 * The site stylesheet usually sets leading for h1, h2 and h3 once, which
+	 * is the right place for it. Reading only the page's own rules reported
+	 * that a heading had decided nothing when the site decided it for every
+	 * heading it has.
+	 */
+	public function test_leading_set_by_the_site_stylesheet_counts(): void {
+		$review = $this->review(
+			$this->good_css() . ' .hero h1 { font-size: 90px; }',
+			'<h1>A</h1>',
+			'.aiwp-page h1,.aiwp-page h2{ line-height:.96; }'
+		);
+
+		$this->assertNotContains( 'leading_not_decided', $this->ids( $review ) );
+	}
+
+	/** A 30px standfirst at 1.4 is correctly set; flagging it teaches people to ignore the finding. */
+	public function test_a_large_standfirst_is_not_display_type(): void {
+		$review = $this->review( $this->good_css() . ' .stand { font-size: 30px; line-height: 1.4; }' );
+
+		$this->assertNotContains( 'leading_not_decided', $this->ids( $review ) );
 	}
 }

@@ -8,7 +8,7 @@ There is no LLM inside the plugin and no hosted service behind it.
 
 ## Install
 
-Download **aiwp-designer-0.10.0.zip** from
+Download **aiwp-designer-0.11.0.zip** from
 [Releases](https://github.com/jindalatul/AIWP-Designer/releases/latest), then in
 WordPress go to **Plugins → Add New → Upload Plugin** and choose that file.
 

@@ -263,13 +263,9 @@ final class AIRepeaterField extends \acf_field {
 			}
 
 			$row = array();
-			foreach ( $raw_row as $sub_key => $sub_value ) {
-				// Posted rows are keyed by ACF field key; programmatic ones by name.
-				$sub_field = $sub_fields['key'][ $sub_key ] ?? ( $sub_fields['name'][ $sub_key ] ?? null );
-				if ( null === $sub_field ) {
-					continue;
-				}
-				$row[ $sub_field['_name'] ?? $sub_field['name'] ] = $this->sanitize_sub_value( $sub_value, (string) $sub_field['type'] );
+			foreach ( self::row_by_name( $raw_row, $sub_fields ) as $name => $sub_value ) {
+				$sub_field    = $sub_fields['name'][ $name ];
+				$row[ $name ] = $this->sanitize_sub_value( $sub_value, (string) $sub_field['type'] );
 			}
 
 			if ( array() !== $row ) {
@@ -384,8 +380,74 @@ final class AIRepeaterField extends \acf_field {
 	 * @param string              $input
 	 * @return bool|string
 	 */
+	/**
+	 * The rows a person actually filled in.
+	 *
+	 * Every repeater renders a hidden row that JavaScript clones when somebody
+	 * adds one, and the browser submits it like any other field. update_value
+	 * has always dropped it. validate_value did not, so every repeater was
+	 * counted one row bigger than it is, and that phantom row is empty by
+	 * definition — which meant a page with a repeater could not be saved from
+	 * wp-admin at all. A three-row field with a maximum of three reported
+	 * "allows at most 3 rows", and a field with required sub-fields reported
+	 * them missing. The one thing ACF fields are for is letting the owner edit
+	 * their own content, and this stopped them.
+	 *
+	 * @param mixed $value
+	 * @return array<int|string,array<string,mixed>>
+	 */
+	private static function posted_rows( $value ): array {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$rows = array();
+
+		foreach ( $value as $key => $row ) {
+			// __count is the row counter, acfcloneindex is the template.
+			if ( '__count' === $key || 'acfcloneindex' === $key || ! is_array( $row ) ) {
+				continue;
+			}
+
+			$rows[ $key ] = $row;
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * A posted row, re-keyed by sub field name.
+	 *
+	 * The browser names every sub input after its ACF field key, because that
+	 * is what acf_render_field_wrap writes. Programmatic rows are keyed by
+	 * name. update_value has always accepted both; validate_value read names
+	 * only, so every required sub field looked empty and no page with a
+	 * repeater could be saved from wp-admin.
+	 *
+	 * @param array<string,mixed>                                                      $raw_row
+	 * @param array{key:array<string,array<string,mixed>>,name:array<string,array<string,mixed>>} $sub_fields
+	 * @return array<string,mixed>
+	 */
+	private static function row_by_name( array $raw_row, array $sub_fields ): array {
+		$row = array();
+
+		foreach ( $raw_row as $sub_key => $sub_value ) {
+			$sub_field = $sub_fields['key'][ $sub_key ] ?? ( $sub_fields['name'][ $sub_key ] ?? null );
+			if ( null === $sub_field ) {
+				continue;
+			}
+			$row[ $sub_field['_name'] ?? $sub_field['name'] ] = $sub_value;
+		}
+
+		return $row;
+	}
+
 	public function validate_value( $valid, $value, $field, $input ) {
-		$rows  = is_array( $value ) ? array_filter( $value, 'is_array' ) : array();
+		$sub_fields = $this->sub_field_map( $field );
+		$rows       = array();
+		foreach ( self::posted_rows( $value ) as $raw_row ) {
+			$rows[] = self::row_by_name( $raw_row, $sub_fields );
+		}
 		$count = count( $rows );
 
 		$min = absint( $field['min'] ?? 0 );

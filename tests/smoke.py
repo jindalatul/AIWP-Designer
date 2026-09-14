@@ -240,7 +240,7 @@ CSS = """body { background: #fff; }
 .sm-hero h1 { font-size: clamp(2.2rem, 5vw, 4rem); max-width: 16ch; }
 .sm-eyebrow { text-transform: uppercase; letter-spacing: .12em; color: var(--aiwp-color-accent); }
 .sm-intro { max-width: 62ch; }
-.sm-cta { display: inline-block; background: var(--aiwp-color-accent); color: #10182b; padding: 14px 28px; border-radius: var(--aiwp-radius-medium); font-weight: 600; text-decoration: none; }
+.sm-cta { display: inline-block; background: var(--aiwp-color-accent); color: #ffffff; padding: 14px 28px; border-radius: var(--aiwp-radius-medium); font-weight: 600; text-decoration: none; }
 .sm-steps { padding: var(--aiwp-space-lg) 0; }
 .sm-step-list { display: grid; gap: var(--aiwp-space-md); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); list-style: none; padding: 0; }
 .sm-faq { padding: var(--aiwp-space-lg) 0; background: var(--aiwp-color-surface); }
@@ -402,6 +402,22 @@ check("it knows which version it read", look.get("version", 0) > 0, json.dumps(l
 check("publish without confirmation is refused", nope.get("success") is not True)
 pub = tool("page_publish", {"page_id": page_id, "version": 3, "confirm_publish": True})
 check("publish succeeds with confirmation", pub.get("success") is True, json.dumps(pub)[:300])
+
+# A design fault the reviewer calls high is not a matter of taste, and
+# page_publish refuses it the way it refuses an unread page.
+wid_bad = tool("workflow_prepare", {"workflow_type": "redesign_page", "page_id": page_id})["workflow_id"]
+faint = tool("page_update", {"workflow_id": wid_bad, "page_id": page_id,
+                             "css": ".sm-faint { color: #cfd4dc; background: #ffffff; }"})
+if faint.get("success"):
+    tool("page_look", {"page_id": page_id})
+    refused = tool("page_publish", {"page_id": page_id, "confirm_publish": True})
+    check("publishing text nobody can read is refused",
+          refused.get("error", {}).get("code") == "AIWP_DESIGN_FAULT", json.dumps(refused)[:220])
+    wid_fix = tool("workflow_prepare", {"workflow_type": "redesign_page", "page_id": page_id})["workflow_id"]
+    tool("page_update", {"workflow_id": wid_fix, "page_id": page_id, "css": ""})
+    tool("page_look", {"page_id": page_id})
+    check("and publishing works again once it is fixed",
+          tool("page_publish", {"page_id": page_id, "confirm_publish": True}).get("success") is True)
 live = fetch(pub["url"])
 check("published page is public", "without the guesswork" in live)
 public_data = json.loads(fetch(f"{SITE}/wp-json/aiwp-designer/v1/pages/{page_id}/data"))

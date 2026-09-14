@@ -10,6 +10,19 @@ namespace AIWP\Designer\Prompts;
 final class PromptRegistry {
 
 	public const WORKFLOWS = array(
+		'build_site'           => array(
+			'title'    => 'Build a whole site, in order',
+			'prompts'  => array(
+				'core/system',
+				'core/safety',
+				'design/brand-analysis',
+				'design/design-system',
+				'design/component-library',
+				'design/header-footer',
+				'workflows/build-site',
+			),
+			'context'  => array( 'site_context', 'capabilities', 'design_system' ),
+		),
 		'build_page'           => array(
 			'title'    => 'Build a page',
 			'prompts'  => array(
@@ -28,6 +41,8 @@ final class PromptRegistry {
 				'design/responsive-design',
 				'core/forms',
 				'review/design-critic',
+				'design/visual-polish',
+				'review/accessibility',
 				'workflows/build-page',
 			),
 			'context'  => array( 'site_context', 'capabilities', 'design_system' ),
@@ -50,6 +65,7 @@ final class PromptRegistry {
 				'design/responsive-design',
 				'core/forms',
 				'review/design-critic',
+				'review/accessibility',
 				'workflows/redesign-page',
 			),
 			'context'  => array( 'site_context', 'capabilities', 'design_system' ),
@@ -113,6 +129,9 @@ final class PromptRegistry {
 				'design/seo',
 				'design/responsive-design',
 				'review/design-critic',
+				'design/visual-polish',
+				'design/composition',
+				'review/accessibility',
 				'workflows/build-article-template',
 			),
 			'context'  => array( 'site_context', 'capabilities', 'design_system' ),
@@ -127,11 +146,21 @@ final class PromptRegistry {
 				'design/page-designer',
 				'design/component-library',
 				'design/responsive-design',
+				'design/visual-polish',
+				'design/composition',
+				'review/design-critic',
 				'workflows/build-archive',
 			),
 			'context'  => array( 'site_context', 'capabilities', 'design_system' ),
 		),
-		'build_chrome'         => array(
+		/*
+		 * The header and footer are on every page of the site, and they used to
+		 * be built with six of these documents while a page got fourteen. No
+		 * composition, no critic, no responsive guidance — and the chrome's own
+		 * notes say the header is the part most likely to break on a phone.
+		 * That is why chrome came out weaker than the pages it wraps.
+		 */
+		'build_header_footer'  => array(
 			'title'    => 'Build the shared header and footer',
 			'prompts'  => array(
 				'core/system',
@@ -139,8 +168,14 @@ final class PromptRegistry {
 				'core/template-language',
 				'core/content-model',
 				'core/css-rules',
-				'design/chrome',
-				'workflows/build-chrome',
+				'design/header-footer',
+				'design/component-library',
+				'design/composition',
+				'design/responsive-design',
+				'design/visual-polish',
+				'review/design-critic',
+				'review/accessibility',
+				'workflows/build-header-footer',
 			),
 			'context'  => array( 'site_context', 'capabilities', 'design_system' ),
 		),
@@ -155,8 +190,15 @@ final class PromptRegistry {
 		),
 	);
 
+	/** What these workflows used to be called. */
+	private const RENAMED = array( 'build_chrome' => 'build_header_footer' );
+
+	public static function canonical( string $workflow ): string {
+		return self::RENAMED[ $workflow ] ?? $workflow;
+	}
+
 	public static function exists( string $workflow ): bool {
-		return isset( self::WORKFLOWS[ $workflow ] );
+		return isset( self::WORKFLOWS[ self::canonical( $workflow ) ] );
 	}
 
 	/**
@@ -170,6 +212,6 @@ final class PromptRegistry {
 	 * @return array<string,mixed>|null
 	 */
 	public static function get( string $workflow ): ?array {
-		return self::WORKFLOWS[ $workflow ] ?? null;
+		return self::WORKFLOWS[ self::canonical( $workflow ) ] ?? null;
 	}
 }

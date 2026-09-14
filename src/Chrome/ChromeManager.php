@@ -34,8 +34,17 @@ final class ChromeManager {
 	private VersionManager $versions;
 	private FieldValueManager $values;
 	private ?MenuRenderer $menus;
+	private ?\AIWP\Designer\Design\DesignSystemRepository $design;
 
-	public function __construct( FileStore $files, PageRepository $pages, VersionManager $versions, FieldValueManager $values, ?MenuRenderer $menus = null ) {
+	public function __construct(
+		FileStore $files,
+		PageRepository $pages,
+		VersionManager $versions,
+		FieldValueManager $values,
+		?MenuRenderer $menus = null,
+		?\AIWP\Designer\Design\DesignSystemRepository $design = null
+	) {
+		$this->design = $design;
 		$this->files    = $files;
 		$this->pages    = $pages;
 		$this->versions = $versions;
@@ -147,7 +156,87 @@ final class ChromeManager {
 	 * @param array<string,mixed> $input sections, content, header, footer, css
 	 * @return array<string,mixed>
 	 */
+	/**
+	 * The parts that were sent, over the parts already stored.
+	 *
+	 * @param array<string,mixed> $input
+	 * @return array<string,mixed>
+	 */
+	private function merged_with_stored( array $input ): array {
+		if ( ! $this->exists() ) {
+			return $input;
+		}
+
+		$page_id = $this->holder_page_id( false );
+		$schema  = $this->schema();
+
+		$stored = array(
+			'sections' => $schema instanceof PageSchema ? $schema->to_array() : array(),
+			'content'  => $this->content(),
+			'header'   => $this->header_template(),
+			'footer'   => $this->footer_template(),
+			'css'      => $this->authored_css(),
+		);
+
+		foreach ( $stored as $key => $value ) {
+			if ( ! array_key_exists( $key, $input ) ) {
+				$input[ $key ] = $value;
+			}
+		}
+
+		unset( $page_id );
+
+		return $input;
+	}
+
+	/**
+	 * Design findings serious enough to refuse.
+	 *
+	 * @return string[]
+	 */
+	private function serious_design_faults( string $css, string $markup ): array {
+		if ( '' === trim( $css ) ) {
+			return array();
+		}
+
+		$design = $this->design;
+
+		if ( ! $design instanceof \AIWP\Designer\Design\DesignSystemRepository ) {
+			return array();
+		}
+
+		$review = ( new \AIWP\Designer\Design\DesignReviewer(
+			$css,
+			$markup,
+			$design->current(),
+			$design->authored_global_css() . "\n" . $design->components()->css(),
+			$design->components()
+		) )->reviewing_chrome()->review();
+
+		$out = array();
+
+		foreach ( (array) ( $review['findings'] ?? array() ) as $finding ) {
+			if ( 'high' === ( $finding['severity'] ?? '' ) ) {
+				$out[] = (string) ( $finding['title'] ?? '' ) . ' ' . (string) ( $finding['detail'] ?? '' );
+			}
+		}
+
+		return $out;
+	}
+
 	public function store( array $input ): array {
+		/*
+		 * Anything left out keeps what is already there.
+		 *
+		 * Changing one line of footer CSS used to mean resending the sections,
+		 * the content, the header and the footer, and leaving any of them out
+		 * did not fail cleanly — it said "Send at least a header or a footer",
+		 * then "Schema has no sections", then complained that the header
+		 * referenced fields that no longer existed. Three refusals for a
+		 * one-line change. The design system merges the same way.
+		 */
+		$input = $this->merged_with_stored( $input );
+
 		$schema = PageSchema::from_array( (array) ( $input['sections'] ?? array() ) );
 
 		$errors   = $schema->errors();
@@ -173,6 +262,16 @@ final class ChromeManager {
 			foreach ( $result['warnings'] as $warning ) {
 				$warnings[] = sprintf( '%s: %s', $part, $warning );
 			}
+		}
+
+		/*
+		 * A page cannot be published carrying a high-severity design fault.
+		 * The header and footer are on every page of the site, and nothing
+		 * stopped them at all — which is how one of these shipped with white
+		 * on coral at 3.31:1. The same bar applies here.
+		 */
+		foreach ( $this->serious_design_faults( (string) ( $input['css'] ?? '' ), $header . "\n" . $footer ) as $fault ) {
+			$errors[] = 'AIWP_DESIGN_FAULT: ' . $fault;
 		}
 
 		// match_root: the header and footer elements carry the scope attribute, so a

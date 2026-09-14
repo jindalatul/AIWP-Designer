@@ -29,6 +29,10 @@ final class TemplateValidator {
 		'details', 'summary', 'time', 'address', 'hgroup', 'abbr', 'q', 'code', 'pre', 'kbd', 'samp',
 		'sub', 'sup', 's', 'del', 'ins', 'wbr', 'data', 'output', 'progress', 'meter',
 		'svg', 'path', 'circle', 'ellipse', 'rect', 'line', 'polyline', 'polygon', 'g', 'defs',
+		// Inside an <svg> these are the accessible name and description, and
+		// check_html refuses them anywhere else. Blocking them outright made
+		// every diagram on every site unreachable to a screen reader.
+		'title', 'desc',
 		'lineargradient', 'radialgradient', 'stop', 'use', 'symbol', 'text', 'tspan', 'clippath', 'mask',
 	);
 
@@ -59,7 +63,7 @@ final class TemplateValidator {
 	public const FORBIDDEN_SUBSTRINGS = array(
 		'<?php', '<?=', '<?', '?>',
 		'<script', '</script', '<iframe', '<object', '<embed', '<applet',
-		'<style', '<link', '<meta', '<base', '<title', '<form', '<input', '<textarea', '<select',
+		'<style', '<link', '<meta', '<base', '<form', '<input', '<textarea', '<select',
 		'javascript:', 'vbscript:', 'data:text/html', '-moz-binding', 'expression(',
 	);
 
@@ -90,6 +94,7 @@ final class TemplateValidator {
 		$this->check_control_characters( $source );
 
 		$this->check_forbidden_strings( $source );
+		$this->check_landmarks( $source );
 		$this->check_event_handlers( $source );
 		$this->check_unescaped_filter( $source );
 
@@ -287,6 +292,15 @@ final class TemplateValidator {
 				$this->errors[] = sprintf( 'HTML element <%s> is not allowed.', $tag );
 			}
 
+			// <title> is a document element outside an svg and the accessible
+			// name inside one. Only the second is anybody's business here.
+			if ( in_array( $tag, array( 'title', 'desc' ), true ) && ! self::inside_svg( $child ) ) {
+				$this->errors[] = sprintf(
+					'<%s> belongs inside an <svg>, where it names the graphic. Outside one it is a document element and cannot go in a template.',
+					$tag
+				);
+			}
+
 			foreach ( iterator_to_array( $child->attributes ) as $attr ) {
 				$name = strtolower( $attr->nodeName );
 
@@ -338,6 +352,26 @@ final class TemplateValidator {
 	 * ordinary formatting and stay allowed; the rest are refused outright,
 	 * which closes the whole class of trick rather than one spelling of it.
 	 */
+	/**
+	 * Landmarks the plugin already provides.
+	 *
+	 * Every page is rendered inside <main class="aiwp-page">. A template that
+	 * opens with its own <main> — which is the natural thing to write, and
+	 * which the allowlist permitted — produces two main landmarks in one
+	 * document. That is invalid HTML, and a screen reader offers the visitor a
+	 * choice of two "main" regions, neither of which is wrong. Nothing looks
+	 * broken, so nobody finds it.
+	 */
+	private function check_landmarks( string $source ): void {
+		if ( ! preg_match( '/<main\b/i', $source ) ) {
+			return;
+		}
+
+		$this->warnings[] = 'The page is already rendered inside <main>, so a template does not need to open one. '
+			. 'Yours is used as the page element rather than nested inside a second one, which is what you want, '
+			. 'but a <div> says more plainly that the landmark is not yours to declare.';
+	}
+
 	private function check_control_characters( string $source ): void {
 		if ( ! preg_match( '/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/', $source, $found, PREG_OFFSET_CAPTURE ) ) {
 			return;
@@ -350,6 +384,17 @@ final class TemplateValidator {
 			ord( $found[0][0] ),
 			(int) $found[0][1]
 		);
+	}
+
+	/** Whether a node sits inside an svg. */
+	private static function inside_svg( DOMElement $node ): bool {
+		for ( $up = $node->parentNode; $up instanceof DOMElement; $up = $up->parentNode ) {
+			if ( 'svg' === strtolower( $up->tagName ) ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	private function check_url_attribute( string $tag, string $name, string $value ): void {

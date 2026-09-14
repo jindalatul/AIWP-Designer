@@ -294,4 +294,25 @@ final class TemplateValidatorTest extends TestCase {
 
 		$this->assertTrue( $result['valid'], implode( ' | ', (array) $result['errors'] ) );
 	}
+
+	/**
+	 * Inside an svg, <title> is the accessible name. Blocking it outright
+	 * made every diagram on every site unreachable to a screen reader, and
+	 * left aria-label as the only option, which is weaker.
+	 */
+	public function test_svg_title_and_desc_are_allowed(): void {
+		$template = '<main><svg viewBox="0 0 10 10" role="img" aria-labelledby="t d">'
+			. '<title id="t">A heating system</title><desc id="d">Boiler, cylinder, radiators.</desc>'
+			. '<rect x="1" y="1" width="8" height="8"/></svg></main>';
+
+		$this->assertTrue( $this->validate( $template )['valid'], implode( ' | ', (array) $this->validate( $template )['errors'] ) );
+	}
+
+	public function test_a_title_outside_an_svg_is_still_refused(): void {
+		$this->assertFalse( $this->validate( '<main><title>Page title</title><h1>A</h1></main>' )['valid'] );
+	}
+
+	public function test_a_desc_outside_an_svg_is_still_refused(): void {
+		$this->assertFalse( $this->validate( '<main><desc>Something</desc></main>' )['valid'] );
+	}
 }

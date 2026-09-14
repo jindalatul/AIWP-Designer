@@ -67,7 +67,9 @@ final class WorkflowManager {
 			);
 		}
 
-		if ( $record['type'] !== $expected_type ) {
+		// Both sides through the same renaming, so a workflow prepared under an
+		// old name still satisfies a tool that asks under the new one.
+		if ( PromptRegistry::canonical( (string) $record['type'] ) !== PromptRegistry::canonical( $expected_type ) ) {
 			return array(
 				'valid'   => false,
 				'code'    => 'AIWP_WORKFLOW_TYPE_MISMATCH',

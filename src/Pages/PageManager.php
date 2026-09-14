@@ -4,7 +4,9 @@ declare( strict_types = 1 );
 namespace AIWP\Designer\Pages;
 
 use AIWP\Designer\ACF\ACFManager;
+use AIWP\Designer\Rendering\AssetManager;
 use AIWP\Designer\ACF\FieldValueManager;
+use AIWP\Designer\Design\DesignReviewer;
 use AIWP\Designer\Design\DesignSystemRepository;
 use AIWP\Designer\Forms\FormSchema;
 use AIWP\Designer\Pages\FrontPage;
@@ -85,7 +87,7 @@ final class PageManager {
 			'schema'    => $schema,
 			'template'  => (string) ( $input['template'] ?? '' ),
 			'css'       => (string) ( $input['css'] ?? '' ),
-			'behaviors' => (array) ( $input['behaviors'] ?? array() ),
+			'behaviors' => AssetManager::behaviors_for( (string) ( $input['template'] ?? '' ), (array) ( $input['behaviors'] ?? array() ) ),
 			'forms'     => (array) ( $input['forms'] ?? array() ),
 		);
 
@@ -127,7 +129,9 @@ final class PageManager {
 			$package,
 			(array) ( $input['content'] ?? array() ),
 			(array) ( $input['design_metadata'] ?? array() ),
-			(string) ( $input['chrome'] ?? 'theme' ),
+			// header_footer is the name now; chrome is what it used to be called
+			// and still works, so a saved workflow does not break.
+			(string) ( $input['header_footer'] ?? $input['chrome'] ?? 'theme' ),
 			$workflow_type,
 			$validation['forms']
 		);
@@ -210,7 +214,10 @@ final class PageManager {
 			'schema'    => $schema,
 			'template'  => isset( $input['template'] ) ? (string) $input['template'] : $this->pages->template( $page_id ),
 			'css'       => isset( $input['css'] ) ? (string) $input['css'] : $this->raw_css_for_update( $page_id, $input ),
-			'behaviors' => isset( $input['behaviors'] ) ? (array) $input['behaviors'] : (array) $manifest->get( 'behaviors', array() ),
+			'behaviors' => AssetManager::behaviors_for(
+				(string) ( $input['template'] ?? $this->pages->template( $page_id ) ),
+				isset( $input['behaviors'] ) ? (array) $input['behaviors'] : (array) $manifest->get( 'behaviors', array() )
+			),
 			'forms'     => isset( $input['forms'] ) ? (array) $input['forms'] : (array) $manifest->get( 'forms', array() ),
 		);
 
@@ -250,7 +257,7 @@ final class PageManager {
 			$package,
 			$content,
 			$design_metadata,
-			(string) ( $input['chrome'] ?? $manifest->get( 'chrome', 'theme' ) ),
+			(string) ( $input['header_footer'] ?? $input['chrome'] ?? $manifest->get( 'chrome', 'theme' ) ),
 			$workflow_type,
 			$validation['forms']
 		);
@@ -295,6 +302,48 @@ final class PageManager {
 	 * @param array<int,array<string,mixed>> $updates
 	 * @return array<string,mixed>
 	 */
+	/**
+	 * Every shape somebody sends updates in, as one list.
+	 *
+	 * @param array<mixed> $updates
+	 * @return array<int,array{field_path:string,value:mixed}>
+	 */
+	private static function as_update_list( array $updates ): array {
+		if ( array_is_list( $updates ) ) {
+			$out = array();
+
+			foreach ( $updates as $update ) {
+				if ( is_array( $update ) && isset( $update['field_path'] ) ) {
+					$out[] = array(
+						'field_path' => (string) $update['field_path'],
+						'value'      => $update['value'] ?? null,
+					);
+				}
+			}
+
+			return $out;
+		}
+
+		$out = array();
+
+		foreach ( $updates as $key => $value ) {
+			$key = (string) $key;
+
+			// { hero: { h1: "x" } }
+			if ( is_array( $value ) && ! array_is_list( $value ) && false === strpos( $key, '.' ) ) {
+				foreach ( $value as $field => $inner ) {
+					$out[] = array( 'field_path' => $key . '.' . (string) $field, 'value' => $inner );
+				}
+				continue;
+			}
+
+			// { "hero.h1": "x" }
+			$out[] = array( 'field_path' => $key, 'value' => $value );
+		}
+
+		return $out;
+	}
+
 	public function update_content( int $page_id, array $updates ): array {
 		if ( ! $this->pages->is_aiwp_page( $page_id ) ) {
 			return $this->error( 'AIWP_PAGE_INVALID', 'That page is not an AIWP page.' );
@@ -304,6 +353,19 @@ final class PageManager {
 		if ( ! $schema instanceof PageSchema ) {
 			return $this->error( 'AIWP_PAGE_INVALID', 'That page has no schema.' );
 		}
+
+		/*
+		 * A map is the shape people reach for, and it used to fail as "unknown
+		 * field" three times in a row without ever saying the shape was the
+		 * problem. Both spellings work now, because refusing a reasonable
+		 * guess without explaining it is the same waste as accepting it and
+		 * doing nothing.
+		 *
+		 *   [ { field_path: "hero.h1", value: "x" } ]
+		 *   { "hero.h1": "x" }
+		 *   { hero: { h1: "x" } }
+		 */
+		$updates = self::as_update_list( $updates );
 
 		$applied = array();
 		$errors  = array();
@@ -379,6 +441,28 @@ final class PageManager {
 						$page_id
 					)
 					: sprintf( 'Nobody has read this page back yet. Call page_look on %d first, then publish.', $page_id )
+			);
+		}
+
+		/*
+		 * A design fault the reviewer calls high is not a matter of taste. It
+		 * is text nobody can read, or a heading order a screen reader cannot
+		 * follow. page_publish already insists the page was read back; it has
+		 * no business letting one of those through while it does.
+		 *
+		 * Medium and low stay advice. This refuses only what is wrong.
+		 */
+		$serious = $this->serious_design_faults( $page_id );
+
+		if ( array() !== $serious ) {
+			return $this->error(
+				'AIWP_DESIGN_FAULT',
+				sprintf(
+					'%s Run design_review on %d for the detail, fix it, then publish.',
+					implode( ' ', $serious ),
+					$page_id
+				),
+				array( 'errors' => $serious, 'warnings' => array() )
 			);
 		}
 
@@ -555,7 +639,13 @@ final class PageManager {
 			array(
 				'template'     => $package['template'],
 				'css'          => $validation['css'],
-				'authored_css' => $package['css'],
+				// The authored copy is the source somebody edits. page_get used to
+				// hand back only the scoped CSS, so reading a page, changing a
+				// line and sending it back overwrote the source with scoped
+				// selectors — after which the code editor shows them and the
+				// component extractor, which treats a descendant part as
+				// placement rather than a component, stops finding anything.
+				'authored_css' => self::unscoped( (string) $package['css'], $uuid ),
 				'schema'   => $schema->to_array(),
 				'content'  => $content,
 				'manifest' => $manifest->to_array(),
@@ -707,6 +797,50 @@ final class PageManager {
 	 * @param array<string,mixed> $validation
 	 * @return array<string,mixed>
 	 */
+	/**
+	 * Design findings serious enough to stop a page going public.
+	 *
+	 * @return string[]
+	 */
+	private function serious_design_faults( int $page_id ): array {
+		$design = $this->design->current();
+
+		$review = ( new DesignReviewer(
+			$this->pages->authored_css( $page_id ),
+			$this->pages->template( $page_id ),
+			$design,
+			$this->design->authored_global_css() . "\n" . $this->design->components()->css(),
+			$this->design->components()
+		) )->review();
+
+		$out = array();
+
+		foreach ( (array) ( $review['findings'] ?? array() ) as $finding ) {
+			if ( 'high' === ( $finding['severity'] ?? '' ) ) {
+				$out[] = (string) ( $finding['title'] ?? '' );
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * CSS with this page's own scope prefix taken back off.
+	 *
+	 * Idempotent scoping means a round trip renders correctly, so nothing ever
+	 * looked broken. What it quietly lost was the difference between what
+	 * somebody wrote and what the plugin made of it.
+	 */
+	private static function unscoped( string $css, string $uuid ): string {
+		if ( '' === trim( $uuid ) ) {
+			return $css;
+		}
+
+		$scope = '[data-aiwp-page="' . $uuid . '"]';
+
+		return str_replace( array( $scope . ' ', $scope ), '', $css );
+	}
+
 	private function error( string $code, string $message, array $validation = array() ): array {
 		return array(
 			'success'    => false,

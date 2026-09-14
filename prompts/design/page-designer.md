@@ -112,9 +112,9 @@ and control the crop in CSS with `aspect-ratio` + `object-fit: cover`.
 
 ## Chrome
 
-- `chrome: "theme"` keeps the site's own header and footer. Use it when the page
+- `header_footer: "theme"` keeps the site's own header and footer. Use it when the page
   must sit inside an existing site.
-- `chrome: "blank"` gives you the whole document. Use it when you are designing
+- `header_footer: "blank"` gives you the whole document. Use it when you are designing
   the look of the site itself — and then you must build a real header and footer
   in the template, because nothing else will.
 

@@ -19,11 +19,30 @@ namespace AIWP\Designer\Design;
  */
 final class ComponentExtractor {
 
-	/** A rule needs this many surface properties before it looks like a component. */
+	/** A rule needs this many defining properties before it looks like a component. */
 	private const SURFACE_PROPERTIES = array(
 		'background', 'background-color', 'border', 'border-top', 'border-bottom',
 		'border-left', 'border-right', 'border-width', 'border-radius',
 		'box-shadow', 'padding', 'color',
+	);
+
+	/*
+	 * A component does not have to be a box.
+	 *
+	 * Looking only for background, border, radius and shadow finds cards and
+	 * buttons and nothing else — so a site whose language is typographic
+	 * reports that it has no components at all, and then gets told off for
+	 * having none. On a bindery whose design system says "nothing but paper
+	 * and space", that was every rule on the page.
+	 *
+	 * A figure set large in a colour beside a caption is a component. It is
+	 * reused, it carries meaning, and another page should be able to reach for
+	 * it. These are what says so.
+	 */
+	private const TYPOGRAPHIC_PROPERTIES = array(
+		'font-family', 'font-size', 'font-weight', 'letter-spacing',
+		'text-transform', 'line-height', 'font-style', 'text-decoration',
+		'text-decoration-thickness', 'text-underline-offset',
 	);
 
 	private CSSReader $css;
@@ -55,6 +74,7 @@ final class ComponentExtractor {
 					'selectors' => array(),
 					'rules'     => array(),
 					'surface'   => 0,
+					'type'      => 0,
 					'states'    => false,
 				);
 			}
@@ -68,6 +88,12 @@ final class ComponentExtractor {
 				}
 			}
 
+			foreach ( self::TYPOGRAPHIC_PROPERTIES as $property ) {
+				if ( isset( $rule['declarations'][ $property ] ) ) {
+					++$groups[ $base ]['type'];
+				}
+			}
+
 			if ( false !== strpos( $rule['selector'], ':hover' ) || false !== strpos( $rule['selector'], ':focus' ) ) {
 				$groups[ $base ]['states'] = true;
 			}
@@ -76,12 +102,16 @@ final class ComponentExtractor {
 		$out = array();
 
 		foreach ( $groups as $base => $group ) {
+			// Either kind of definition counts, and a piece that is both is
+			// stronger than one that is neither.
+			$defined = $group['surface'] + $group['type'];
+
 			// One rule that only sets a colour is not a component, it is a tweak.
-			if ( $group['surface'] < 2 ) {
+			if ( $defined < 2 ) {
 				continue;
 			}
 
-			if ( 1 === count( $group['rules'] ) && $group['surface'] < 3 ) {
+			if ( 1 === count( $group['rules'] ) && $defined < 3 ) {
 				continue;
 			}
 

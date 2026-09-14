@@ -39,7 +39,7 @@ Read it before you design: `design_get_system` for the tokens and `style`,
 6. `design_get_components` — the pieces you must build from.
 7. If there is a brief, record it with `page_set_brief` before you design. Then plan the page: goal, audience, conversion, direction, story. In `design_metadata` set `page_type`, so the next page of this kind can find it, and `target_words` when a brief gives one, so `performance_static_audit` can say when the page is short.
 8. Decide the field model, then the markup, then the CSS. Page CSS lays this page out; it does not redefine components.
-9. `page_create` with the full package: `page`, `design_metadata`, `sections`, `content`, `template`, `css`, `behaviors`, `chrome`.
+9. `page_create` with the full package: `page`, `design_metadata`, `sections`, `content`, `template`, `css`, `behaviors`, `header_footer`.
 10. Read the response. Validation warnings are real; fix them.
 11. `design_review` on the page. Fix what it finds — that is the machine pass.
 12. Open `preview_url` in your browser and actually look at the page. Check a phone width too.

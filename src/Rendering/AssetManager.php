@@ -14,6 +14,42 @@ final class AssetManager {
 
 	public const BEHAVIORS = array( 'accordion', 'tabs', 'modal', 'counter', 'reveal', 'sticky', 'carousel' );
 
+	/**
+	 * The behaviors a page needs: the ones its markup uses, plus any declared.
+	 *
+	 * These used to be two statements that could disagree, and when they did
+	 * the result was invisible content. The baseline CSS hides a reveal until
+	 * a script adds is-revealed; the script is only loaded when the manifest
+	 * lists the behavior; so a template that used the attribute without also
+	 * repeating itself in the list rendered a band of nothing. No error, on a
+	 * published page. I did it myself on three pages of a real site.
+	 *
+	 * The markup is the truth now. The validator has already refused any name
+	 * that is not a real behavior, so nothing unknown can arrive this way.
+	 *
+	 * @param string[] $declared
+	 * @return string[]
+	 */
+	public static function behaviors_for( string $template, array $declared = array() ): array {
+		$found = array_map( 'strval', $declared );
+
+		if ( preg_match_all( '/data-aiwp-behavior\s*=\s*(["\'])(.*?)\1/i', $template, $matches ) ) {
+			foreach ( $matches[2] as $value ) {
+				foreach ( preg_split( '/\s+/', trim( (string) $value ) ) ?: array() as $name ) {
+					if ( '' !== $name && in_array( $name, self::BEHAVIORS, true ) ) {
+						$found[] = $name;
+					}
+				}
+			}
+		}
+
+		$found = array_values( array_unique( array_filter( $found ) ) );
+		sort( $found );
+
+		return $found;
+	}
+
+
 	private PageRepository $pages;
 	private DesignSystemRepository $design;
 	private ?ChromeManager $chrome;

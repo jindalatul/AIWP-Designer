@@ -116,3 +116,16 @@ List every behavior you use in the `behaviors` array of the page package.
 
 Only `data-aiwp-*` and `aria-*` custom attributes are allowed. There is no
 `style` attribute — everything visual goes in the page CSS.
+
+## Menus
+
+A menu is placed with an attribute, not with a filter. Put it on an empty
+element and WordPress fills it in:
+
+```html
+<nav data-aiwp-menu="primary"></nav>
+```
+
+The plugin prints a plain `<ul><li><a>` inside it, which you style yourself.
+`site_get_menus` lists the locations this site has; a location it does not know
+is refused. Set what is in a menu with `site_set_menu`.

@@ -8,3 +8,6 @@ __pycache__/
 .phpunit.result.cache
 .DS_Store
 vendor/
+node_modules/
+composer.lock
+*.zip

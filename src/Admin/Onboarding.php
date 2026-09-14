@@ -14,7 +14,7 @@ final class Onboarding {
 
 	public const OPTION = 'aiwp_brand_inputs';
 
-	private const FIELDS = array(
+	public const FIELDS = array(
 		'business_name'      => 'Business name',
 		'business_summary'   => 'What the business does',
 		'audience'           => 'Who the customers are',

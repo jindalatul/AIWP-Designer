@@ -23,6 +23,40 @@ use DOMXPath;
 final class DesignReviewer {
 
 	/** What one rem is in a browser nobody has rescaled. */
+	/**
+	 * Some checks only make sense on a page.
+	 *
+	 * A header that has nothing bigger than 35px is a header doing its job, not
+	 * a timid one, and telling it to shout would make it worse. The same goes
+	 * for line length and heading order: the chrome has no body copy and no
+	 * document outline of its own.
+	 */
+	private bool $is_chrome = false;
+
+	public function reviewing_chrome(): self {
+		$clone            = clone $this;
+		$clone->is_chrome = true;
+
+		return $clone;
+	}
+
+	/**
+	 * Two indents this far apart or less were trying to line up.
+	 * Further apart than this is a hierarchy somebody chose.
+	 */
+	private const NEAR_MISS = 24.0;
+
+	/** At and above this, type is display type and wants its own leading. */
+	/*
+	 * 28 was too low. A 30px standfirst at 1.4 is correctly set, and flagging
+	 * it taught people to ignore the finding. Genuinely display type — the
+	 * thing that is first on the page — starts higher.
+	 */
+	private const DISPLAY_SIZE = 44.0;
+
+	/** The loosest leading display type should have. */
+	private const DISPLAY_LEADING = 1.3;
+
 	private const ROOT_FONT_SIZE = 16.0;
 
 	/** How far off a palette colour still counts as "meant to be that colour". */
@@ -94,6 +128,9 @@ final class DesignReviewer {
 		$this->check_states();
 		$this->check_motion();
 		$this->check_motion_consistency();
+		$this->check_leading();
+		$this->check_lopsided_padding();
+		$this->check_alignment();
 		$this->check_responsive();
 		$this->check_measure();
 		$this->check_heading_order();
@@ -351,6 +388,32 @@ final class DesignReviewer {
 	 * A hero that is barely bigger than body text never feels designed.
 	 */
 	private function check_type_contrast(): void {
+		if ( $this->is_chrome ) {
+			return;
+		}
+
+		/*
+		 * A site that said in words it is quiet gets to be quiet.
+		 *
+		 * check_motion already stands down when the design system chose
+		 * stillness on purpose, and this is the same thing one property over:
+		 * a survey-report site whose personality says "dense, technical,
+		 * nothing shouts" does not want a 90px headline, and telling it to
+		 * find one is my taste overruling its decision. The written decisions
+		 * are the site's; this check is only for the sites that never made
+		 * one.
+		 */
+		/*
+		 * A site that chose to be quiet gets to be quiet — but only if there
+		 * is something on the page to look at. Quiet type and no image at all
+		 * is not restraint, it is a page nobody designed, and letting the
+		 * written decision excuse both is how I silenced the one check that
+		 * would have said so.
+		 */
+		if ( $this->chose_to_be_quiet() && $this->has_anything_to_look_at() ) {
+			return;
+		}
+
 		$sizes = array_merge( $this->font_sizes(), $this->font_sizes( $this->inherited ) );
 		if ( count( $sizes ) < 3 ) {
 			return;
@@ -376,6 +439,52 @@ final class DesignReviewer {
 	/**
 	 * Padding, margins and gaps that ignore the spacing scale.
 	 */
+	/** Whether the imagery decision is that there is none. */
+	private function imagery_says_none( string $said ): bool {
+		foreach ( array( 'none', 'no image', 'no photograph', 'no photography', 'text only', 'nothing' ) as $phrase ) {
+			if ( false !== strpos( $said, $phrase ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/** Anything on the page that is looked at rather than read. */
+	private function has_anything_to_look_at(): bool {
+		if ( '' === trim( $this->html ) ) {
+			// No markup to judge, so nothing can be said either way.
+			return true;
+		}
+
+		return 1 === preg_match( '/<(img|svg|figure|picture|video|canvas)\b/i', $this->html );
+	}
+
+	/**
+	 * Whether the design system said, in words, that this site is restrained.
+	 *
+	 * Read from personality and layout, which are prose the site wrote about
+	 * itself. Nothing is inferred from the values: a site can be quiet and
+	 * still have a large headline, and that is its business.
+	 */
+	private function chose_to_be_quiet(): bool {
+		$style = (array) ( $this->system->tokens()['style'] ?? array() );
+		$said  = strtolower( (string) ( $style['personality'] ?? '' ) . ' ' . (string) ( $style['layout'] ?? '' ) );
+
+		if ( '' === trim( $said ) ) {
+			return false;
+		}
+
+		foreach ( array( 'quiet', 'nothing shouts', 'nothing on this site shouts', 'restrained', 'understated',
+			'dense', 'technical', 'not an advertisement', 'rather than an advertisement', 'sober', 'unhurried' ) as $phrase ) {
+			if ( false !== strpos( $said, $phrase ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	private function check_spacing_scale(): void {
 		$scale = array();
 		foreach ( (array) ( $this->system->tokens()['spacing'] ?? array() ) as $value ) {
@@ -704,6 +813,381 @@ final class DesignReviewer {
 		return $out;
 	}
 
+	/**
+	 * Big text left with body leading.
+	 *
+	 * Type gets tighter as it gets bigger — that is the oldest rule in setting
+	 * type and the one most often missed, because nothing looks broken. A
+	 * 35px line at the body's 1.6 falls into three loose lines and reads as
+	 * three separate thoughts instead of one sentence. It is the single
+	 * commonest reason a competent page still looks amateur.
+	 *
+	 * A rule that sets a large size and no line-height inherits the body's,
+	 * whatever that is. So the check is not "is the leading wrong" — it is
+	 * "did anyone decide".
+	 */
+	private function check_leading(): void {
+		$loose = array();
+
+		foreach ( $this->css->rules() as $rule ) {
+			$declarations = (array) $rule['declarations'];
+
+			if ( ! isset( $declarations['font-size'] ) ) {
+				continue;
+			}
+
+			$size = $this->largest_size( (string) $declarations['font-size'] );
+
+			if ( $size < self::DISPLAY_SIZE ) {
+				continue;
+			}
+
+			$leading = (string) ( $declarations['line-height'] ?? '' );
+
+			if ( '' === $leading ) {
+				/*
+				 * The site stylesheet usually sets leading for h1, h2 and h3
+				 * once, which is exactly the right place for it. Reading only
+				 * the page's own rules reports that a heading decided nothing
+				 * when the site decided it for every heading it has.
+				 */
+				if ( $this->leading_inherited( (string) $rule['selector'] ) ) {
+					continue;
+				}
+
+				$loose[] = sprintf( '"%s" at %dpx sets no line-height', $this->short_selector( (string) $rule['selector'] ), (int) round( $size ) );
+				continue;
+			}
+
+			$number = (float) $leading;
+
+			// A unitless number, or a length we can compare against the size.
+			if ( str_ends_with( trim( $leading ), 'px' ) ) {
+				$number = $size > 0 ? $number / $size : 0.0;
+			}
+
+			if ( $number > 0 && $number > self::DISPLAY_LEADING ) {
+				$loose[] = sprintf(
+					'"%s" at %dpx has line-height %s',
+					$this->short_selector( (string) $rule['selector'] ),
+					(int) round( $size ),
+					$leading
+				);
+			}
+		}
+
+		if ( array() === $loose ) {
+			return;
+		}
+
+		$this->add(
+			'leading_not_decided',
+			'medium',
+			sprintf( '%d large text rule(s) use body leading.', count( $loose ) ),
+			implode( '; ', array_slice( $loose, 0, 4 ) ) . '.',
+			sprintf(
+				'Text at %dpx or more wants line-height between 1.0 and %s. Left alone it inherits the body\'s, '
+					. 'and a headline falls into loose separate lines instead of reading as one thing.',
+				(int) self::DISPLAY_SIZE,
+				(string) self::DISPLAY_LEADING
+			)
+		);
+	}
+
+	/**
+	 * A block with far more space below its content than above it, or the
+	 * other way round.
+	 *
+	 * This is what makes a footer look like it is falling out of the page: 22px
+	 * above the last line and 88px below it. Nobody chose that; it is what you
+	 * get when a padding shorthand is written once and the content inside
+	 * changes. Deliberate asymmetry is normal — four times is not.
+	 */
+	private function check_lopsided_padding(): void {
+		$found = array();
+
+		foreach ( $this->css->rules() as $rule ) {
+			$declarations = (array) $rule['declarations'];
+
+			$top    = $this->edge( $declarations, 'top' );
+			$bottom = $this->edge( $declarations, 'bottom' );
+
+			if ( null === $top || null === $bottom || ( $top < 1.0 && $bottom < 1.0 ) ) {
+				continue;
+			}
+
+			$big   = max( $top, $bottom );
+			$small = min( $top, $bottom );
+
+			// Both small enough that the difference cannot be seen.
+			if ( $big < 24.0 ) {
+				continue;
+			}
+
+			if ( $small > 0.0 && $big / max( $small, 1.0 ) < 3.0 ) {
+				continue;
+			}
+
+			$found[] = sprintf(
+				'"%s" has %dpx above and %dpx below',
+				$this->short_selector( (string) $rule['selector'] ),
+				(int) round( $top ),
+				(int) round( $bottom )
+			);
+		}
+
+		if ( array() === $found ) {
+			return;
+		}
+
+		$this->add(
+			'padding_lopsided',
+			'low',
+			sprintf( '%d block(s) have much more space on one side than the other.', count( $found ) ),
+			implode( '; ', array_slice( $found, 0, 4 ) ) . '.',
+			'Uneven space reads as a mistake rather than as rhythm, and it is what makes a footer look like it is '
+				. 'falling out of the page. Use the same step of the spacing scale on both sides unless the '
+				. 'difference is doing something.'
+		);
+	}
+
+	/**
+	 * The largest length in a value, so clamp() is read at its top end and a
+	 * token is read as the number it stands for.
+	 */
+	private function largest_size( string $value ): float {
+		$direct = $this->to_px( $value );
+
+		if ( null !== $direct ) {
+			return $direct;
+		}
+
+		$largest = 0.0;
+
+		// A token inside a clamp, or several tokens in a shorthand.
+		if ( preg_match_all( '/var\(\s*--aiwp-(?:text|space)-[\w-]+\s*\)/', $value, $tokens ) ) {
+			foreach ( $tokens[0] as $token ) {
+				$largest = max( $largest, (float) ( $this->to_px( $token ) ?? 0.0 ) );
+			}
+		}
+
+		if ( preg_match_all( '/(-?[0-9]*\.?[0-9]+)\s*(px|rem|em)\b/i', $value, $found, PREG_SET_ORDER ) ) {
+			foreach ( $found as $match ) {
+				$largest = max( $largest, (float) ( $this->to_px( $match[1] . strtolower( $match[2] ) ) ?? 0.0 ) );
+			}
+		}
+
+		return $largest;
+	}
+
+	/**
+	 * Padding on one edge, from the shorthand or the long form.
+	 *
+	 * @param array<string,string> $declarations
+	 */
+	private function edge( array $declarations, string $side ): ?float {
+		if ( isset( $declarations[ 'padding-' . $side ] ) ) {
+			return $this->largest_size( (string) $declarations[ 'padding-' . $side ] );
+		}
+
+		if ( ! isset( $declarations['padding'] ) ) {
+			return null;
+		}
+
+		$parts = preg_split( '/\s+/', trim( (string) $declarations['padding'] ) ) ?: array();
+
+		// A var() we cannot resolve tells us nothing either way.
+		if ( array() === $parts || count( $parts ) > 4 ) {
+			return null;
+		}
+
+		$top    = $parts[0];
+		$bottom = 4 === count( $parts ) ? $parts[2] : ( 3 === count( $parts ) ? $parts[2] : $parts[0] );
+		$raw    = 'top' === $side ? $top : $bottom;
+
+		$size = $this->largest_size( (string) $raw );
+
+		return $size > 0.0 ? $size : null;
+	}
+
+	private function short_selector( string $selector ): string {
+		$selector = (string) preg_replace( '/\[data-aiwp-[a-z-]+="[^"]*"\]\s*/', '', $selector );
+
+		return '' === trim( $selector ) ? '(root)' : trim( $selector );
+	}
+
+	/**
+	 * Whether the site stylesheet already sets leading for this element.
+	 *
+	 * @param string $selector the page rule's selector
+	 */
+	private function leading_inherited( string $selector ): bool {
+		if ( ! preg_match( '/\b(h[1-6])\s*$/i', trim( $selector ), $found ) ) {
+			return false;
+		}
+
+		$element = strtolower( $found[1] );
+
+		foreach ( $this->inherited->rules() as $rule ) {
+			if ( ! isset( $rule['declarations']['line-height'] ) ) {
+				continue;
+			}
+
+			if ( preg_match( '/\b' . $element . '\b/i', (string) $rule['selector'] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Blocks that were meant to line up and do not.
+	 *
+	 * The commonest version has one shape. A section head is a grid with a
+	 * fixed first column — say 56px for a number — and a gap. Its heading
+	 * therefore starts at 56 + gap. The body underneath is then indented with
+	 * margin-left: 56px to "line up with the heading", and lands one gap short.
+	 * Fourteen pixels out: too small to look deliberate, too large to look
+	 * right, and invisible unless somebody measures the boxes.
+	 *
+	 * Only near misses are reported. Two indents far apart are a deliberate
+	 * hierarchy; two within a couple of dozen pixels are an accident.
+	 */
+	private function check_alignment(): void {
+		$indents = array();
+
+		foreach ( $this->css->rules() as $rule ) {
+			$selector     = $this->short_selector( (string) $rule['selector'] );
+			$declarations = (array) $rule['declarations'];
+
+			foreach ( $this->indents_of( $declarations ) as $label => $value ) {
+				if ( $value >= 16.0 ) {
+					$indents[] = array(
+						'where' => $selector . ' (' . $label . ')',
+						'at'    => $value,
+						'kind'  => $label,
+					);
+				}
+			}
+		}
+
+		if ( count( $indents ) < 2 ) {
+			return;
+		}
+
+		$near = array();
+
+		foreach ( $indents as $i => $one ) {
+			foreach ( array_slice( $indents, $i + 1 ) as $other ) {
+				/*
+				 * One side has to be a grid's second column.
+				 *
+				 * Comparing any left offset against any other says a card with
+				 * 16px of padding disagrees with a block that has a 32px
+				 * margin, which is not a disagreement — they are different
+				 * boxes in different coordinate spaces and were never trying
+				 * to line up. The mistake worth reporting is specific: a
+				 * heading sitting in a grid column, and a sibling indented to
+				 * meet it that lands a gap short.
+				 */
+				if ( 'second column' !== $one['kind'] && 'second column' !== $other['kind'] ) {
+					continue;
+				}
+
+				if ( $one['kind'] === $other['kind'] ) {
+					continue;
+				}
+
+				$apart = abs( $one['at'] - $other['at'] );
+
+				if ( $apart < 0.5 || $apart > self::NEAR_MISS ) {
+					continue;
+				}
+
+				$key          = sprintf( '%s|%s', $one['where'], $other['where'] );
+				$near[ $key ] = sprintf(
+					'%s starts at %dpx and %s at %dpx, %dpx apart',
+					$one['where'],
+					(int) round( $one['at'] ),
+					$other['where'],
+					(int) round( $other['at'] ),
+					(int) round( $apart )
+				);
+			}
+		}
+
+		if ( array() === $near ) {
+			return;
+		}
+
+		$this->add(
+			'almost_aligned',
+			'medium',
+			sprintf( '%d pair(s) of blocks almost line up.', count( $near ) ),
+			implode( '; ', array_slice( array_values( $near ), 0, 3 ) ) . '.',
+			'A grid with a fixed first column starts its second column at that width plus the gap, so a sibling '
+				. 'indented by the column width alone lands one gap short. Either use the same number on both, or '
+				. 'make the difference big enough to read as a choice.'
+		);
+	}
+
+	/**
+	 * Where a rule's content starts, from the left.
+	 *
+	 * @param array<string,string> $declarations
+	 * @return array<string,float>
+	 */
+	private function indents_of( array $declarations ): array {
+		$out = array();
+
+		foreach ( array( 'margin-left' => 'margin-left', 'padding-left' => 'padding-left' ) as $property => $label ) {
+			if ( isset( $declarations[ $property ] ) ) {
+				$out[ $label ] = $this->largest_size( (string) $declarations[ $property ] );
+			}
+		}
+
+		/*
+		 * Only a deliberate left indent counts. A shorthand padding on a
+		 * container is how wide the page gutter is, not an attempt to meet
+		 * anything, and comparing it against a grid column reports that 34 and
+		 * 36 disagree — which is true and means nothing.
+		 */
+
+		// A fixed first column: the next column starts at its width plus the gap.
+		if ( isset( $declarations['grid-template-columns'] ) ) {
+			$first = $this->first_track( (string) $declarations['grid-template-columns'] );
+			$gap   = isset( $declarations['gap'] ) ? $this->largest_size( (string) $declarations['gap'] )
+				: ( isset( $declarations['column-gap'] ) ? $this->largest_size( (string) $declarations['column-gap'] ) : 0.0 );
+
+			if ( null !== $first ) {
+				$out['second column'] = $first + $gap;
+			}
+		}
+
+		return $out;
+	}
+
+	/** A first grid track, when it is a plain fixed width. */
+	private function first_track( string $value ): ?float {
+		$parts = preg_split( '/\s+(?![^(]*\))/', trim( $value ) ) ?: array();
+
+		if ( array() === $parts ) {
+			return null;
+		}
+
+		$first = (string) $parts[0];
+
+		// minmax() and fr are not a fixed edge, so nothing can be said.
+		if ( false !== stripos( $first, 'minmax' ) || false !== stripos( $first, 'fr' ) || false !== stripos( $first, 'repeat' ) ) {
+			return null;
+		}
+
+		$size = $this->largest_size( $first );
+
+		return $size > 0.0 ? $size : null;
+	}
+
 	private function check_responsive(): void {
 		$fluid = 0;
 		foreach ( array_merge( $this->css->declarations(), $this->inherited->declarations() ) as $declaration ) {
@@ -727,6 +1211,10 @@ final class DesignReviewer {
 	}
 
 	private function check_measure(): void {
+		if ( $this->is_chrome ) {
+			return;
+		}
+
 		$limited = false;
 
 		foreach ( array_merge( $this->css->declarations(), $this->inherited->declarations() ) as $declaration ) {
@@ -765,6 +1253,10 @@ final class DesignReviewer {
 	}
 
 	private function check_heading_order(): void {
+		if ( $this->is_chrome ) {
+			return;
+		}
+
 		$doc = $this->document();
 		if ( null === $doc ) {
 			return;
@@ -901,6 +1393,29 @@ final class DesignReviewer {
 						. 'system so every page follows the new one. One page going its own way is what makes a site look assembled.'
 				);
 			}
+		}
+
+		/*
+		 * Imagery was the one written decision nothing ever checked, and it is
+		 * the one that decides whether a page is designed or merely typeset.
+		 * A site that says its argument is photographs of pipework, and then
+		 * ships pages of unbroken text, reads as a document rather than a
+		 * website — however good the typography is.
+		 */
+		$imagery = strtolower( (string) ( $style['imagery'] ?? '' ) );
+
+		// A header and footer carry navigation, not the page's argument. The
+		// imagery decision is about pages.
+		if ( ! $this->is_chrome && '' !== $imagery && ! $this->imagery_says_none( $imagery ) && ! $this->has_anything_to_look_at() ) {
+			$this->add(
+				'nothing_to_look_at',
+				'medium',
+				'There is no image, diagram or figure anywhere on this page.',
+				sprintf( 'The design system says imagery is: "%s"', $style['imagery'] ),
+				'A page of unbroken text reads as a document, not as a site, whatever the type is doing. '
+					. 'Put in what the decision says belongs here, or change the decision to say this site is '
+					. 'text only and mean it.'
+			);
 		}
 
 		$motion = strtolower( (string) ( $style['motion'] ?? '' ) );
@@ -1052,6 +1567,16 @@ final class DesignReviewer {
 		if ( preg_match( '/^var\(\s*--aiwp-text-([\w-]+)/', $value, $m ) ) {
 			$scale = $this->text_scale();
 			return $scale[ $m[1] ] ?? null;
+		}
+
+		// And the spacing scale, for the same reason: padding is written with
+		// these tokens everywhere, and a check that cannot read them reports
+		// that no page has any padding at all.
+		if ( preg_match( '/^var\(\s*--aiwp-space-([\w-]+)/', $value, $m ) ) {
+			$spacing = (array) ( $this->system->tokens()['spacing'] ?? array() );
+			$named   = (string) ( $spacing[ $m[1] ] ?? '' );
+
+			return '' === $named ? null : $this->to_px( $named );
 		}
 
 		if ( ! preg_match( '/^(-?[\d.]+)(px|rem|em|pt)?$/', $value, $m ) ) {

@@ -41,11 +41,21 @@ final class PageInspector {
 	private PageRepository $pages;
 	private FieldValueManager $values;
 	private PageRenderer $renderer;
+	private ?\AIWP\Designer\Chrome\ChromeManager $chrome;
+	private ?\AIWP\Designer\Design\DesignSystemRepository $design;
 
-	public function __construct( PageRepository $pages, FieldValueManager $values, PageRenderer $renderer ) {
+	public function __construct(
+		PageRepository $pages,
+		FieldValueManager $values,
+		PageRenderer $renderer,
+		?\AIWP\Designer\Chrome\ChromeManager $chrome = null,
+		?\AIWP\Designer\Design\DesignSystemRepository $design = null
+	) {
 		$this->pages    = $pages;
 		$this->values   = $values;
 		$this->renderer = $renderer;
+		$this->chrome   = $chrome;
+		$this->design   = $design;
 	}
 
 	/**
@@ -77,7 +87,8 @@ final class PageInspector {
 			$this->unused( $schema, $template ),
 			$this->placeholders( $html ),
 			$this->repeats( $html ),
-			$this->dead_links( $html )
+			$this->dead_links( $html ),
+			$this->cta_twice( $html )
 		);
 
 		$reading = $this->reading( $html );
@@ -91,6 +102,19 @@ final class PageInspector {
 			);
 		}
 
+		/*
+		 * The craft findings come back here too.
+		 *
+		 * design_review has always known about loose leading, lopsided
+		 * padding, off-palette colour and the rest, and running it was
+		 * optional — so a page could be published having never been looked at
+		 * by the one tool that can see those things. page_look is the step
+		 * nothing can skip, because page_publish refuses without it. Putting
+		 * the findings here means the unmissable step is also the one that
+		 * reports them.
+		 */
+		$design = $this->design_findings( $page_id );
+
 		return array(
 			'ok'          => true,
 			'page_id'     => $page_id,
@@ -103,10 +127,35 @@ final class PageInspector {
 			// deciding the page is finished.
 			'reading'     => $reading,
 			'problems'    => $problems,
-			'looks_right' => array() === $problems,
-			'next_step'   => array() === $problems
+			'design'      => $design,
+			'looks_right' => array() === $problems && array() === $design['findings'],
+			'next_step'   => array() === $problems && array() === $design['findings']
 				? 'Nothing here needs fixing. Open the preview URL yourself if you want to see it laid out.'
-				: 'Fix what is listed, then look again.',
+				: 'Fix what is listed, under problems and under design, then look again.',
+		);
+	}
+
+	/**
+	 * What design_review says about this page, folded in.
+	 *
+	 * @return array{score:int,findings:array<int,array<string,mixed>>}
+	 */
+	private function design_findings( int $page_id ): array {
+		if ( ! $this->design instanceof \AIWP\Designer\Design\DesignSystemRepository ) {
+			return array( 'score' => 100, 'findings' => array() );
+		}
+
+		$review = ( new \AIWP\Designer\Design\DesignReviewer(
+			$this->pages->authored_css( $page_id ),
+			$this->pages->template( $page_id ),
+			$this->design->current(),
+			$this->design->authored_global_css() . "\n" . $this->design->components()->css(),
+			$this->design->components()
+		) )->review();
+
+		return array(
+			'score'    => (int) ( $review['score'] ?? 100 ),
+			'findings' => (array) ( $review['findings'] ?? array() ),
 		);
 	}
 
@@ -220,6 +269,18 @@ final class PageInspector {
 				continue;
 			}
 
+			/*
+			 * Only a sentence counts.
+			 *
+			 * Three campus cards listing the same office hours is a
+			 * comparison doing its job, not a page repeating itself, and
+			 * flagging it teaches people to skim the list. A value in a table
+			 * has no full stop; a sentence somebody wrote twice does.
+			 */
+			if ( ! preg_match( '/[.!?]["\')\]]?$/u', $part ) ) {
+				continue;
+			}
+
 			$key           = strtolower( (string) preg_replace( '/\s+/', ' ', $part ) );
 			$seen[ $key ]  = ( $seen[ $key ] ?? 0 ) + 1;
 		}
@@ -275,6 +336,86 @@ final class PageInspector {
 				'An empty href or "#". A visitor clicks and the page does not move.'
 			),
 		);
+	}
+
+	/**
+	 * A call to action the visitor has already been given.
+	 *
+	 * The shared header or footer carries a button, the page ends with the
+	 * same button, and somebody scrolling meets "Get a fixed price" twice
+	 * within one screen. Every page passes on its own, because nothing looking
+	 * at a page can see the chrome around it.
+	 *
+	 * Matched on the link and its words together, so a footer that merely
+	 * links to the same page with different words is left alone — that is
+	 * navigation, not a repeated ask.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	private function cta_twice( string $html ): array {
+		if ( ! $this->chrome instanceof \AIWP\Designer\Chrome\ChromeManager || ! $this->chrome->exists() ) {
+			return array();
+		}
+
+		// The rendered chrome, not the template. A template still says
+		// {{text:nav.cta}}, which matches nothing and quietly finds no
+		// duplicates at all.
+		$around = $this->links_in( $this->chrome->render( 'header' ) . $this->chrome->render( 'footer' ) );
+
+		if ( array() === $around ) {
+			return array();
+		}
+
+		$out = array();
+
+		foreach ( $this->links_in( $html ) as $key => $words ) {
+			if ( ! isset( $around[ $key ] ) ) {
+				continue;
+			}
+
+			$out[] = $this->problem(
+				'asked_twice',
+				sprintf( '"%s" is on this page and in the header or footer.', $words ),
+				'A visitor is given the same instruction twice, often within one screen, which makes both of them '
+					. 'read as decoration. Keep whichever is better placed and drop the other, or give the page one '
+					. 'that says something the shared one cannot.'
+			);
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Links as "words at destination", so the same ask can be recognised.
+	 *
+	 * @return array<string,string> key => the words, for the message
+	 */
+	private function links_in( string $markup ): array {
+		if ( ! preg_match_all( '/<a\b([^>]*)>(.*?)<\/a>/is', $markup, $found, PREG_SET_ORDER ) ) {
+			return array();
+		}
+
+		$out = array();
+
+		foreach ( $found as $link ) {
+			if ( ! preg_match( '/\bhref\s*=\s*(["\'])(.*?)\1/is', $link[1], $href ) ) {
+				continue;
+			}
+
+			$words = trim( (string) preg_replace( '/\s+/', ' ', wp_strip_all_tags( $link[2] ) ) );
+			$where = trim( $href[2] );
+
+			// A menu placeholder has no words yet, and a bare anchor is not an ask.
+			if ( '' === $words || '' === $where || '#' === $where ) {
+				continue;
+			}
+
+			$key = strtolower( $words ) . '@' . rtrim( (string) wp_parse_url( $where, PHP_URL_PATH ) ?: $where, '/' );
+
+			$out[ $key ] = $words;
+		}
+
+		return $out;
 	}
 
 	/**

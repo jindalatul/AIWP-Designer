@@ -117,25 +117,44 @@ final class ToolRegistry {
 	/**
 	 * Argument names this tool does not have.
 	 *
+	 * Only the top level used to be checked, and "page" is a known top-level
+	 * key, so page_create({page: {chrome: "site"}}) came back success: true and
+	 * quietly ignored the chrome. That is the exact thing this guard exists to
+	 * prevent, happening one level down.
+	 *
 	 * @param array<string,mixed> $schema
 	 * @param array<string,mixed> $args
-	 * @return string[]
+	 * @return string[] dotted paths, so the message says where to look
 	 */
-	private function unknown_arguments( array $schema, array $args ): array {
+	private function unknown_arguments( array $schema, array $args, string $path = '' ): array {
 		$known = (array) ( $schema['properties'] ?? array() );
+
 		if ( array() === $known ) {
 			return array();
 		}
 
 		$unknown = array();
-		foreach ( array_keys( $args ) as $key ) {
-			$key = (string) $key;
+
+		foreach ( $args as $key => $value ) {
+			$key  = (string) $key;
+			$here = '' === $path ? $key : $path . '.' . $key;
+
 			if ( ! isset( $known[ $key ] ) ) {
-				$unknown[] = $key;
+				$unknown[] = $here;
+				continue;
+			}
+
+			$child = (array) $known[ $key ];
+
+			// Only look inside an object that says what it holds. One with no
+			// declared properties is free-form on purpose.
+			if ( is_array( $value ) && ! array_is_list( $value ) && array() !== (array) ( $child['properties'] ?? array() ) ) {
+				$unknown = array_merge( $unknown, $this->unknown_arguments( $child, $value, $here ) );
 			}
 		}
 
 		sort( $unknown );
+
 		return $unknown;
 	}
 
@@ -155,8 +174,24 @@ final class ToolRegistry {
 		return 'AIWP_CSS_INVALID';
 	}
 
+	/**
+	 * Names these tools used to have.
+	 *
+	 * "Chrome" is an interface word for the frame around the content, and
+	 * nobody outside interface design reads it that way — the admin menu has
+	 * always said Header & Footer. Renaming the tools without keeping the old
+	 * names would break every saved workflow that calls them, which is the
+	 * exact failure this plugin spends its time refusing to commit.
+	 */
+	private const RENAMED = array(
+		'site_get_chrome' => 'site_get_header_footer',
+		'site_set_chrome' => 'site_set_header_footer',
+	);
+
 	private function normalise( string $name ): string {
-		return str_replace( array( '.', '-' ), '_', strtolower( trim( $name ) ) );
+		$name = str_replace( array( '.', '-' ), '_', strtolower( trim( $name ) ) );
+
+		return self::RENAMED[ $name ] ?? $name;
 	}
 
 	/**
@@ -193,6 +228,28 @@ final class ToolRegistry {
 					array( 'workflow_type' )
 				),
 				'handler'     => array( $this, 'workflow_prepare' ),
+			),
+
+			'site_set_brand' => array(
+				'description' => 'Record what this business is and who it is for. Everything designed afterwards refers '
+					. 'back to it, so this comes before the design system. Ask the owner rather than inventing answers; '
+					. 'anything left out keeps what is already stored. The same answers appear on the Brand & Business '
+					. 'screen, where the owner can correct them.',
+				'capability'  => CapabilityManager::MANAGE_DESIGN,
+				'workflow'    => '',
+				'schema'      => $obj(
+					array(
+						'business_name'      => $str( 'The name as it should appear.' ),
+						'business_summary'   => $str( 'What the business does, in a sentence or two.' ),
+						'audience'           => $str( 'Who the customers are.' ),
+						'products'           => $str( 'Products or services.' ),
+						'preferred_style'    => $str( 'A few words on how it should feel.' ),
+						'brand_colors'       => $str( 'Hex colours, comma separated, if the business has any.' ),
+						'brand_guidelines'   => $str( 'Anything else that constrains the design.' ),
+						'reference_websites' => $str( 'Sites the owner likes, one per line.' ),
+					)
+				),
+				'handler'     => array( $this, 'site_set_brand' ),
 			),
 
 			'site_get_context' => array(
@@ -352,7 +409,7 @@ final class ToolRegistry {
 				'handler'     => array( $this, 'site_set_front_page' ),
 			),
 
-			'site_get_chrome' => array(
+			'site_get_header_footer' => array(
 				'description' => 'The shared header and footer used by every AIWP page: schema, content, markup and CSS.',
 				'capability'  => CapabilityManager::EDIT_PAGES,
 				'workflow'    => '',
@@ -360,10 +417,10 @@ final class ToolRegistry {
 				'handler'     => array( $this, 'site_get_chrome' ),
 			),
 
-			'site_set_chrome' => array(
+			'site_set_header_footer' => array(
 				'description' => 'Build or replace the site-wide header and footer. Every page with chrome "site" then uses it, so you write the navigation once. Content is editable in WordPress like any page content.',
 				'capability'  => CapabilityManager::MANAGE_DESIGN,
-				'workflow'    => 'build_chrome',
+				'workflow'    => 'build_header_footer',
 				'schema'      => $obj(
 					array(
 						'workflow_id' => $workflow_id,
@@ -417,13 +474,32 @@ final class ToolRegistry {
 				'schema'      => $obj(
 					array(
 						'workflow_id'     => $workflow_id,
+						// Written out rather than described, so that a key this
+						// object does not have is refused instead of quietly
+						// dropped. "chrome" belongs one level up, and putting
+						// it here used to return success and change nothing.
 						'page'            => array(
 							'type'        => 'object',
-							'description' => 'title (required), slug, status, and front_page. A page named Home takes the site root on its own when nothing has claimed it; set front_page true or false to decide explicitly.',
+							'description' => 'The WordPress page itself. A page named Home takes the site root on its own when nothing has claimed it; set front_page to decide explicitly.',
+							'properties'  => array(
+								'title'      => $str( 'Required.' ),
+								'slug'       => $str( 'Defaults to the title.' ),
+								'status'     => $str( 'draft or publish. Defaults to draft.' ),
+								'front_page' => array( 'type' => 'boolean', 'description' => 'Whether this page is the site root.' ),
+							),
 						),
 						'design_metadata' => array(
 							'type'        => 'object',
-							'description' => 'page_goal, audience, visual_direction, primary_conversion, story[].',
+							'description' => 'What this page is for, kept so a later rebuild knows the intent.',
+							'properties'  => array(
+								'page_goal'          => $str( 'What this page is supposed to achieve.' ),
+								'audience'           => $str( 'Who it is written for.' ),
+								'visual_direction'   => $str( 'How it should look and why.' ),
+								'primary_conversion' => $str( 'The one action it wants.' ),
+								'page_type'          => $str( 'What kind of page this is.' ),
+								'target_words'       => $int( 'Roughly how long it should be.' ),
+								'story'              => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'The order the page makes its case in.' ),
+							),
 						),
 						'sections'        => array(
 							'type'        => 'array',
@@ -446,7 +522,10 @@ final class ToolRegistry {
 							'items'       => array( 'type' => 'object' ),
 							'description' => 'Forms this page collects. Each: id, title, submit_label, success_message, notify_email, fields[] of { id, name, label, type, required, width, choices }. Field types: ' . implode( ', ', FormSchema::FIELD_TYPES ) . '. Place each one in the template with <div data-aiwp-form="ID"></div>; the plugin renders the real form.',
 						),
-						'chrome'          => array(
+						// The old name. Still accepted so a saved workflow keeps
+						// working; header_footer is what to write now.
+						'chrome'          => array( 'type' => 'string', 'description' => 'Old name for header_footer.' ),
+						'header_footer'   => array(
 							'type'        => 'string',
 							'enum'        => array( 'theme', 'blank', 'site' ),
 							'description' => 'site uses the shared AIWP header and footer (build it with site_set_chrome). theme uses the WordPress theme. blank gives you the whole document. Default theme.',
@@ -477,7 +556,8 @@ final class ToolRegistry {
 							'description' => 'page_type, target_words, page_goal, audience, visual_direction, primary_conversion, story. '
 								. 'Set target_words from the brief when there is one, so a page that ships at half its planned length is noticed.',
 						),
-						'chrome'                => array( 'type' => 'string', 'enum' => array( 'theme', 'blank', 'site' ) ),
+						'chrome'                => array( 'type' => 'string', 'description' => 'Old name for header_footer.' ),
+						'header_footer'         => array( 'type' => 'string', 'enum' => array( 'theme', 'blank', 'site' ) ),
 						'allow_field_migration' => $bool( 'Set true only when you really mean to rename a field that already holds content.' ),
 					),
 					array( 'workflow_id', 'page_id' )
@@ -863,6 +943,36 @@ final class ToolRegistry {
 	/**
 	 * @return array<string,mixed>
 	 */
+	public function site_set_brand( array $args ): array {
+		$stored = (array) get_option( \AIWP\Designer\Admin\Onboarding::OPTION, array() );
+		$wrote  = array();
+
+		foreach ( array_keys( \AIWP\Designer\Admin\Onboarding::FIELDS ) as $field ) {
+			if ( ! isset( $args[ $field ] ) ) {
+				continue;
+			}
+
+			$stored[ $field ] = Sanitizer::text( (string) $args[ $field ] );
+			$wrote[]          = $field;
+		}
+
+		if ( array() === $wrote ) {
+			return $this->fail(
+				'AIWP_NOTHING_TO_STORE',
+				'Nothing was sent. It takes: ' . implode( ', ', array_keys( \AIWP\Designer\Admin\Onboarding::FIELDS ) ) . '.'
+			);
+		}
+
+		update_option( \AIWP\Designer\Admin\Onboarding::OPTION, $stored );
+
+		return array(
+			'success'   => true,
+			'stored'    => $wrote,
+			'brand'     => $stored,
+			'next_step' => 'Now design_create_system. The answers above are what it should be designed around.',
+		);
+	}
+
 	public function site_get_context(): array {
 		return $this->build_site_context();
 	}
@@ -1346,7 +1456,9 @@ final class ToolRegistry {
 		$looked = ( new \AIWP\Designer\Pages\PageInspector(
 			$this->plugin->pages(),
 			$this->plugin->field_values(),
-			$this->plugin->renderer()
+			$this->plugin->renderer(),
+			$this->plugin->chrome(),
+			$this->plugin->design()
 		) )->look( $page_id );
 
 		// Remember that this version was read back, so publishing can insist on
@@ -1766,9 +1878,9 @@ final class ToolRegistry {
 				$system,
 				$inherited,
 				$this->plugin->design()->components()
-			) )->review();
+			) )->reviewing_chrome()->review();
 
-			return array_merge( array( 'target' => 'chrome' ), $review );
+			return array_merge( array( 'target' => 'header_footer' ), $review );
 		}
 
 		if ( ! $this->plugin->pages()->is_aiwp_page( $page_id ) ) {
@@ -1865,6 +1977,10 @@ final class ToolRegistry {
 				'problem'   => FrontPage::problem(),
 				'how'       => 'A page named Home claims the site root on its own while nothing else has. Otherwise use site_set_front_page.',
 			),
+			// Where this site has got to, and the next thing it needs. Every
+			// workflow documented its own steps and nothing said what order
+			// they went in, so the order was whatever got chosen that day.
+			'stage'        => ( new \AIWP\Designer\Design\SiteStage( $this->plugin ) )->read(),
 			'brand_inputs' => get_option( 'aiwp_brand_inputs', array() ),
 			'aiwp_pages'   => $pages,
 			'page_types'   => $by_type,
@@ -1974,7 +2090,11 @@ final class ToolRegistry {
 				: '',
 			'content'         => $schema ? ( new FieldValueManager() )->read( $page_id, $schema ) : array(),
 			'template'        => $pages->template( $page_id ),
+			// Both, the way the header and footer tool has always returned
+			// both: the scoped copy is what the browser gets, the authored one
+			// is what to send back if you are changing it.
 			'css'             => $pages->css( $page_id ),
+			'authored_css'    => $pages->authored_css( $page_id ),
 			'behaviors'       => $manifest->get( 'behaviors', array() ),
 			'forms'           => $manifest->get( 'forms', array() ),
 			'design_metadata' => array(
@@ -1986,7 +2106,7 @@ final class ToolRegistry {
 				'primary_conversion' => $manifest->get( 'primary_conversion', '' ),
 				'story'              => $manifest->get( 'story', array() ),
 			),
-			'chrome'          => $manifest->get( 'chrome', 'theme' ),
+			'header_footer'   => $manifest->get( 'chrome', 'theme' ),
 			'preview_url'     => $this->plugin->page_manager()->preview_url( $page_id ),
 			'url'             => get_permalink( $page_id ),
 		);

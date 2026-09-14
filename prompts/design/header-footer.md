@@ -1,12 +1,12 @@
 ---
-id: chrome
+id: header-footer
 version: 3
 category: design
 description: Designing the shared header and footer.
 ---
 
 The header and footer are built once and shared by every page that sets
-`chrome: "site"`. Build them before, or just after, the first page — otherwise
+`header_footer: "site"`. Build them before, or just after, the first page — otherwise
 every page repeats its own navigation and they drift apart.
 
 Use the same field model as a page. Sections might be `brand`, `nav` and `footer`;
@@ -28,7 +28,7 @@ asking anyone.
 ```
 
 3. Style `.aiwp-menu`, `.aiwp-menu__item`, `.aiwp-menu__link` and
-   `.aiwp-menu__item.is-current` in your chrome CSS. The current page is marked
+   `.aiwp-menu__item.is-current` in your header and footer CSS. The current page is marked
    for you.
 
 Locations are `primary` and `footer`. If nothing is assigned yet, the published
@@ -57,7 +57,7 @@ pages are listed instead, so a header is never empty.
 
 ## CSS
 
-Your CSS is scoped to the chrome, so plain class names are safe. Two hooks are
+Your CSS is scoped to the header and footer, so plain class names are safe. Two hooks are
 provided for the header and footer elements themselves:
 
 ```css
@@ -68,3 +68,22 @@ tokens so the header and footer sit with every page rather than on top of them.
 
 Keep it light: the header and footer load on every page, so this is the one place
 where a few extra kilobytes are paid for over and over.
+
+## Where the footer meets the page
+
+The footer does not need a margin above it. Every page already ends with its own
+padding, and a margin adds to that rather than replacing it — the two stack, and
+a visitor sees a band of nothing between the last words and the footer. If the
+footer needs separating, a rule or a change of background does it in 1px.
+
+The same goes for the header: the page's first section brings its own top
+padding, so a header with a bottom margin pushes the page away from its own
+opening.
+
+## Do not repeat the page's call to action
+
+If the header or footer carries a button, a page that ends with the same button
+asks the same question twice, often within one screen, and both of them stop
+reading as an instruction. `page_look` reports this as `asked_twice`. Keep
+whichever is better placed, or give the page one that says something the shared
+one cannot.
