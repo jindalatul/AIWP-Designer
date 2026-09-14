@@ -1,5 +1,5 @@
 === AIWP Designer ===
-Contributors: aiwp
+Contributors: Atul Jindal
 Tags: ai, mcp, acf, design, page builder
 Requires at least: 6.6
 Tested up to: 6.8

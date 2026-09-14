@@ -528,7 +528,7 @@ final class ToolRegistry {
 						'header_footer'   => array(
 							'type'        => 'string',
 							'enum'        => array( 'theme', 'blank', 'site' ),
-							'description' => 'site uses the shared AIWP header and footer (build it with site_set_chrome). theme uses the WordPress theme. blank gives you the whole document. Default theme.',
+							'description' => 'site uses the shared AIWP header and footer (build it with site_set_header_footer). theme uses the WordPress theme. blank gives you the whole document. Default theme.',
 						),
 					),
 					array( 'workflow_id', 'page', 'sections', 'template' )
@@ -1251,7 +1251,7 @@ final class ToolRegistry {
 			'footer'   => $chrome->footer_template(),
 			'css'      => $chrome->css(),
 			// The CSS as it was written, before scoping. Send this back to
-			// site_set_chrome to restore the chrome exactly as it is now.
+			// site_set_header_footer to restore the header and footer exactly as it is now.
 			'authored_css' => $chrome->authored_css(),
 			'used_by'  => $this->pages_using_site_chrome(),
 			'note'     => 'Pages opt in with chrome: "site". Build the navigation once here rather than in every page template.',
@@ -2018,7 +2018,7 @@ final class ToolRegistry {
 			'site_chrome'               => array(
 				'exists'  => $this->plugin->chrome()->exists(),
 				'version' => $this->plugin->chrome()->version(),
-				'how'     => 'Build one shared header and footer with site_set_chrome, then set chrome: "site" on each page. Without it every page has to repeat its own navigation.',
+				'how'     => 'Build one shared header and footer with site_set_header_footer, then set header_footer: "site" on each page. Without it every page has to repeat its own navigation.',
 			),
 			'forms'                     => array(
 				'field_types' => FormSchema::FIELD_TYPES,

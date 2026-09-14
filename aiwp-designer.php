@@ -1,12 +1,13 @@
 <?php
 /**
  * Plugin Name:       AIWP Designer
- * Plugin URI:        https://example.com/aiwp-designer
+ * Plugin URI:        https://convertrank.com/aiwp-designer
  * Description:       AI-native website design system for WordPress. Your own AI (Claude / ChatGPT) designs pages through MCP; the plugin is the trusted execution environment.
  * Version:           0.11.0
  * Requires at least: 6.6
  * Requires PHP:      8.1
- * Author:            AIWP
+ * Author:            Atul Jindal
+ * Author URI:        https://convertrank.com
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       aiwp-designer
