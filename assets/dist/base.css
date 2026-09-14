@@ -5,6 +5,16 @@
  * an update reaches every site immediately. Values come from the design
  * system's custom properties; nothing here is site-specific.
  */
+/* Padding counts inside the width, not on top of it.
+   Without this, the most ordinary rule a page can write —
+   `.wrap { width: 100%; padding-inline: 26px }` — comes out 52px wider than
+   the screen, and the page scrolls sideways on a phone. Every brief this
+   plugin is given says the page must not scroll horizontally, and every page
+   that wrote that rule broke it. Scoped so it cannot touch the theme. */
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive){box-sizing:border-box;}
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) *,
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) *::before,
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) *::after{box-sizing:inherit;}
 /* Behaviors hide things with the hidden attribute. Page CSS setting display on
    the same element must never win, or a closed modal renders open. */
 [hidden]{display:none!important;}

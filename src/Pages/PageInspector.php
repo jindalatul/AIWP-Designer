@@ -410,6 +410,15 @@ final class PageInspector {
 				continue;
 			}
 
+			// An email address or a phone number is a contact detail, not a
+			// call to action. A contact page is exactly where they belong, and
+			// the footer is where every site repeats them on purpose. Reporting
+			// that as asking twice told the author to delete the phone number
+			// from the page whose job is to carry it.
+			if ( preg_match( '/^(mailto|tel|sms|fax|callto):/i', $where ) ) {
+				continue;
+			}
+
 			$key = strtolower( $words ) . '@' . rtrim( (string) wp_parse_url( $where, PHP_URL_PATH ) ?: $where, '/' );
 
 			$out[ $key ] = $words;

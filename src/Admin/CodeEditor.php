@@ -41,7 +41,7 @@ final class CodeEditor {
 			'aiwp-code-editor',
 			AIWP_PLUGIN_URL . 'assets/dist/code-editor.js',
 			array( 'jquery', 'wp-theme-plugin-editor', 'code-editor' ),
-			AIWP_VERSION,
+			(string) self::file_version( 'code-editor.js' ),
 			true
 		);
 
@@ -49,7 +49,7 @@ final class CodeEditor {
 			'aiwp-code-editor',
 			AIWP_PLUGIN_URL . 'assets/dist/code-editor.css',
 			array( 'code-editor', 'dashicons' ),
-			AIWP_VERSION
+			(string) self::file_version( 'code-editor.css' )
 		);
 
 		wp_localize_script(
@@ -181,5 +181,19 @@ final class CodeEditor {
 
 	public static function can_use(): bool {
 		return CapabilityManager::current_user_can( CapabilityManager::MANAGE_DESIGN );
+	}
+
+	/**
+	 * Cache key from the file itself, not the plugin version.
+	 *
+	 * The plugin version sat at 0.3.0 through four releases once, and every
+	 * browser that had already loaded these files kept the old ones. The
+	 * baseline CSS was fixed then; these were missed.
+	 */
+	private static function file_version( string $file ): int {
+		$path = AIWP_PLUGIN_DIR . 'assets/dist/' . $file;
+		$time = file_exists( $path ) ? filemtime( $path ) : 0;
+
+		return false === $time ? 0 : (int) $time;
 	}
 }

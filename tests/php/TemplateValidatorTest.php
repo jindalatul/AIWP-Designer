@@ -315,4 +315,31 @@ final class TemplateValidatorTest extends TestCase {
 	public function test_a_desc_outside_an_svg_is_still_refused(): void {
 		$this->assertFalse( $this->validate( '<main><desc>Something</desc></main>' )['valid'] );
 	}
+
+	/**
+	 * A dialog has to be able to take focus.
+	 *
+	 * The modal behavior focuses the dialog when it holds nothing focusable,
+	 * and the focus trap falls back to it. role="dialog" plus aria-modal is a
+	 * promise, and without tabindex="-1" the keyboard cannot keep it. Any other
+	 * value rewrites the tab order of the whole page, so only "-1" is allowed.
+	 */
+	public function test_a_dialog_may_take_focus_out_of_the_tab_order(): void {
+		$result = ( new TemplateValidator() )->validate(
+			'<div data-aiwp-behavior="modal"><button data-aiwp-modal-open>Menu</button>'
+			. '<div data-aiwp-modal-dialog tabindex="-1"><a href="/about/">About</a></div></div>',
+			$this->schema()
+		);
+
+		$this->assertSame( array(), $result['errors'] );
+	}
+
+	public function test_a_template_cannot_reorder_the_page_with_tabindex(): void {
+		$result = ( new TemplateValidator() )->validate(
+			'<div tabindex="3">Jump the queue</div>',
+			$this->schema()
+		);
+
+		$this->assertNotSame( array(), $result['errors'] );
+	}
 }

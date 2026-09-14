@@ -118,6 +118,33 @@ final class FrontPage {
 		delete_post_meta( $page_id, self::META_INTENT );
 	}
 
+	/**
+	 * A published page that asked to be the front page and is not it.
+	 *
+	 * @return int the page id, or 0
+	 */
+	public static function waiting(): int {
+		$found = get_posts(
+			array(
+				'post_type'        => 'page',
+				'post_status'      => 'publish',
+				'meta_key'         => self::META_INTENT,
+				'meta_value'       => '1',
+				'posts_per_page'   => 1,
+				'fields'           => 'ids',
+				'suppress_filters' => true,
+			)
+		);
+
+		foreach ( (array) $found as $id ) {
+			if ( ! self::is_front( (int) $id ) ) {
+				return (int) $id;
+			}
+		}
+
+		return 0;
+	}
+
 	public static function has_intent( int $page_id ): bool {
 		return '1' === (string) get_post_meta( $page_id, self::META_INTENT, true );
 	}
@@ -134,6 +161,33 @@ final class FrontPage {
 	}
 
 	/**
+	 * Honour the intent however the page got published.
+	 *
+	 * page_publish called apply_on_publish and nothing else did, so a page
+	 * built as the homepage and then published any other way — from wp-admin,
+	 * or by a path in this plugin that sets the status itself — kept the intent
+	 * and never got the root. The site root went on serving the blog listing
+	 * and nothing said so.
+	 */
+	public static function watch(): void {
+		add_action(
+			'transition_post_status',
+			static function ( $new_status, $old_status, $post ): void {
+				if ( 'publish' !== $new_status || $new_status === $old_status ) {
+					return;
+				}
+				if ( ! $post instanceof \WP_Post || 'page' !== $post->post_type ) {
+					return;
+				}
+
+				self::apply_on_publish( (int) $post->ID );
+			},
+			10,
+			3
+		);
+	}
+
+	/**
 	 * A front page cannot be a draft. If the page WordPress points at is not
 	 * public, say so rather than letting the site 404 quietly.
 	 */
@@ -141,6 +195,20 @@ final class FrontPage {
 		$page_id = self::current();
 
 		if ( 0 === $page_id ) {
+			// A page was built to be the homepage, is published, and the root
+			// still serves something else. This used to report nothing at all,
+			// so the one page the site is for was unreachable at its own
+			// address and the context said everything was fine.
+			$waiting = self::waiting();
+
+			if ( 0 !== $waiting ) {
+				return sprintf(
+					/* translators: %s: page title */
+					__( '"%s" was built as the homepage and is published, but the site root still serves something else. Call site_set_front_page.', 'aiwp-designer' ),
+					(string) get_the_title( $waiting )
+				);
+			}
+
 			return '';
 		}
 

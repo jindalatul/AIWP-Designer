@@ -2,6 +2,56 @@
 
 All notable changes to AIWP Designer.
 
+## [0.12.0] — 2026-09-14
+
+Built a three-page site cold from a written specification and fixed
+everything the build ran into. Nine faults. Three of them were invisible
+— nothing looked broken, so nobody would have found them.
+
+### Fixed
+- **Every page scrolled sideways on a phone.** The baseline set no
+  `box-sizing`, so the most ordinary rule a page can write —
+  `.wrap { width: 100%; padding-inline: 26px }` — came out exactly 52px
+  wider than the screen. Every brief this plugin is handed says the page
+  must not scroll horizontally, and every page that wrote that rule broke
+  it.
+- **A modal said `aria-modal="true"` and let Tab walk straight out.** The
+  markup told a screen reader nothing outside the dialog existed while the
+  keyboard went there anyway. Tab and Shift+Tab now wrap inside it.
+- **A skip link had nothing to land on.** Every site is asked for one and
+  the rendered `<main>` carried no id, so the guess landed on nothing — a
+  skip link that does not skip, which is worse than none because it looks
+  like the requirement was met. It is `id="aiwp-main"` now.
+- **A homepage could be published and never get the site root.** The
+  intent was recorded and only `page_publish` honoured it. Publish the
+  page any other way and the root went on serving the blog listing, while
+  `site_get_context` reported no problem at all.
+- **`behaviors.js` was cached by plugin version.** The baseline CSS was
+  moved to file time once, with a comment saying the version had sat still
+  through four releases and every browser kept the old file. The
+  JavaScript, the repeater script and the code editor were left behind. A
+  behaviour fixed without a version bump reached nobody.
+- **`scroll-behavior` was refused as Internet Explorer's `behavior:`.**
+  The plugin's own prompt asks every site for a reduced-motion block
+  containing it, so the validator refused the stylesheet it had asked for.
+- **`page_update` could not change a title,** so `seo_audit` reported a
+  title that says nothing and there was no way to act on it except by hand
+  in wp-admin.
+- **`page_set_brief` replaced the brief instead of merging it.** Sending
+  one field wiped the description, the questions and the concepts, and the
+  next audit went quiet because there was nothing left to check against.
+- **A menu label that matched its page title was dropped,** so renaming
+  three pages for search silently rewrote the navigation to match. And
+  `site_set_menu` built a second menu for a location that already had one.
+
+### Changed
+- `tabindex` is allowed on a template, and only as `-1`. The plugin's own
+  modal focuses its dialog and could not, because no template could write
+  it. Any other value rewrites the tab order of the whole page.
+- Two review findings stood down where their advice was wrong: a phone
+  number on the contact page is not the header's call to action asked
+  twice, and a header's logo mark is not a page component.
+
 ## [0.11.0] — 2026-09-14
 
 The 0.10.0 release could check that a page was safe. It could not tell whether

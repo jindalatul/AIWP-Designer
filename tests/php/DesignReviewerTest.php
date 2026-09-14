@@ -501,4 +501,45 @@ final class DesignReviewerTest extends TestCase {
 
 		$this->assertNotContains( 'leading_not_decided', $this->ids( $review ) );
 	}
+
+	/**
+	 * White is white however it is written.
+	 *
+	 * A sticky header writes rgba(255,255,255,.94); a soft shadow writes
+	 * rgba(16,42,67,.07) — the first is not a palette decision and the second
+	 * is. Matching the literal strings "#fff" and "#ffffff" missed every
+	 * translucent one and told the author to replace white with a brand colour.
+	 */
+	public function test_translucent_white_is_not_an_off_palette_colour(): void {
+		$css = '.bar { background: rgba(255, 255, 255, .94); }
+		        .lift { box-shadow: 0 1px 0 rgba(0, 0, 0, .06); }';
+
+		$this->assertNotContains( 'off_palette_colors', $this->ids( $this->review( $css ) ) );
+	}
+
+	public function test_a_colour_that_is_not_white_or_black_is_still_reported(): void {
+		$css = '.bar { background: rgba(122, 85, 16, .9); }';
+
+		$this->assertContains( 'off_palette_colors', $this->ids( $this->review( $css ) ) );
+	}
+
+	/**
+	 * A header's logo mark is not a page component.
+	 *
+	 * page_invents_components asks a page to build from the library. The
+	 * header and footer ARE the shared thing, and their own pieces — a brand
+	 * mark, a menu button, a close link — belong nowhere else. Reporting them
+	 * meant every site's header carried a finding whose fix was wrong.
+	 */
+	public function test_the_header_and_footer_are_not_told_to_reuse_page_components(): void {
+		$css = '.mark { background: #4d2559; padding: 8px; }
+		        .burger { border: 1px solid #e2dde6; padding: 8px; }
+		        .close { background: #f8fafc; padding: 8px; }';
+
+		$page   = new DesignReviewer( $css, '<main><h1>A</h1></main>', $this->system(), '', $this->library() );
+		$chrome = $page->reviewing_chrome();
+
+		$this->assertContains( 'page_invents_components', array_column( $page->review()['findings'], 'id' ) );
+		$this->assertNotContains( 'page_invents_components', array_column( $chrome->review()['findings'], 'id' ) );
+	}
 }

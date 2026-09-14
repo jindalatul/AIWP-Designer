@@ -14,7 +14,22 @@ use AIWP\Designer\Security\Sanitizer;
 final class CSSValidator {
 
 	public const FORBIDDEN = array(
-		'@import', 'expression(', 'javascript:', 'vbscript:', '-moz-binding', 'behavior:', '</style', '<script',
+		'@import', 'expression(', 'javascript:', 'vbscript:', '-moz-binding', '</style', '<script',
+	);
+
+	/**
+	 * Forbidden things that a plain substring search gets wrong.
+	 *
+	 * `behavior:` is Internet Explorer's HTC binding, which could load a script.
+	 * But `scroll-behavior:` and `overscroll-behavior:` are ordinary modern CSS,
+	 * and this plugin's own prompt asks every site to write a reduced-motion
+	 * block containing `scroll-behavior: auto`. Searching for the bare substring
+	 * refused the stylesheet we told the author to write.
+	 *
+	 * @var array<string,string>
+	 */
+	private const FORBIDDEN_PATTERNS = array(
+		'behavior:' => '/(?<![\w-])behavior\s*:/i',
 	);
 
 	/** Selectors that would leak out of the page no matter what follows. */
@@ -70,6 +85,12 @@ final class CSSValidator {
 		foreach ( self::FORBIDDEN as $needle ) {
 			if ( false !== strpos( $lower, $needle ) ) {
 				$this->errors[] = sprintf( 'CSS contains a forbidden construct: "%s".', $needle );
+			}
+		}
+
+		foreach ( self::FORBIDDEN_PATTERNS as $name => $pattern ) {
+			if ( preg_match( $pattern, $lower ) ) {
+				$this->errors[] = sprintf( 'CSS contains a forbidden construct: "%s".', $name );
 			}
 		}
 

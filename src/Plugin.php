@@ -119,6 +119,8 @@ final class Plugin {
 		$this->schema_registrar->register();
 		add_action( 'aiwp/refresh_acf', array( $this->schema_registrar, 'refresh' ) );
 
+		\AIWP\Designer\Pages\FrontPage::watch();
+
 		( new TemplateLoader( $this->page_repository ) )->register();
 		( new AssetManager( $this->page_repository, $this->design_repository, $this->chrome_manager, $this->article_manager ) )->register();
 		$this->form_handler->register();

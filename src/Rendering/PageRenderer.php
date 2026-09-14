@@ -18,6 +18,15 @@ use AIWP\Designer\Template\TemplateParser;
  */
 final class PageRenderer {
 
+	/**
+	 * The id every page's main element carries.
+	 *
+	 * A skip link is part of what this plugin asks every site for, and it needs
+	 * a target that is the same on every page. Header markup can write
+	 * href="#aiwp-main" and be right everywhere.
+	 */
+	public const MAIN_ID = 'aiwp-main';
+
 	private PageRepository $pages;
 	private FieldValueManager $values;
 	private FormRenderer $form_renderer;
@@ -87,6 +96,10 @@ final class PageRenderer {
 	 * When the template already provides the element, it becomes the page
 	 * element instead of being nested inside a second one. Its own classes are
 	 * kept, because the page's CSS is written against them.
+	 *
+	 * It always carries id="aiwp-main". Every site is asked for a skip link,
+	 * and a skip link needs something to point at. Without a fixed id each
+	 * header has to guess one, and the guess lands on nothing.
 	 */
 	public static function as_page_element( string $html, string $uuid ): string {
 		$trimmed = trim( $html );
@@ -96,6 +109,10 @@ final class PageRenderer {
 			&& str_ends_with( strtolower( $trimmed ), '</main>' ) ) {
 
 			$attributes = (string) $open[1];
+
+			if ( ! preg_match( '/\bid\s*=/i', $attributes ) ) {
+				$attributes .= ' id="' . self::MAIN_ID . '"';
+			}
 
 			if ( preg_match( '/\bclass\s*=\s*(["\'])(.*?)\1/i', $attributes, $class ) ) {
 				$attributes = str_replace(
@@ -116,7 +133,8 @@ final class PageRenderer {
 		}
 
 		return sprintf(
-			'<main class="aiwp-page" data-aiwp-page="%s">%s</main>',
+			'<main id="%s" class="aiwp-page" data-aiwp-page="%s">%s</main>',
+			self::MAIN_ID,
 			esc_attr( $uuid ),
 			$html
 		);

@@ -197,7 +197,7 @@ final class DesignReviewer {
 			}
 
 			foreach ( Color::find_all( $declaration['value'] ) as $color ) {
-				if ( in_array( $color, self::NEUTRALS, true ) ) {
+				if ( self::is_neutral( $color ) ) {
 					continue;
 				}
 
@@ -1309,6 +1309,15 @@ final class DesignReviewer {
 	 * twelve stops matching page one. This is the check that notices.
 	 */
 	private function check_component_reuse(): void {
+		// The header and footer are the shared thing. A logo mark, a menu
+		// button and a close link belong to them and to nothing else, so
+		// telling their author to move them into the page component library is
+		// advice nobody should take — and a check people learn to ignore is
+		// worse than no check. The chrome still uses the library's buttons.
+		if ( $this->is_chrome ) {
+			return;
+		}
+
 		if ( $this->library->is_empty() ) {
 			$this->add(
 				'no_component_library',
@@ -1439,6 +1448,27 @@ final class DesignReviewer {
 	private const NEUTRALS = array(
 		'#fff', '#ffffff', '#000', '#000000', 'transparent', 'currentcolor',
 	);
+
+	/**
+	 * Whether a colour is white, black or nothing, in any notation.
+	 *
+	 * The literal list above misses the ones a real stylesheet writes:
+	 * rgba(255,255,255,.94) under a sticky header, rgba(0,0,0,.06) in a
+	 * shadow, #ffffffee. Those are not a palette decision, and reporting them
+	 * as one told the author to swap white for a brand colour.
+	 */
+	private static function is_neutral( string $color ): bool {
+		if ( in_array( $color, self::NEUTRALS, true ) ) {
+			return true;
+		}
+
+		$rgb = Color::to_rgb( $color );
+		if ( null === $rgb ) {
+			return false;
+		}
+
+		return array( 255, 255, 255 ) === $rgb || array( 0, 0, 0 ) === $rgb;
+	}
 
 	/**
 	 * Font sizes in pixels, ignoring anything responsive.

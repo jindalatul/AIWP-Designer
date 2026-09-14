@@ -545,6 +545,16 @@ final class ToolRegistry {
 						'workflow_id'           => $workflow_id,
 						'page_id'               => $int( 'The WordPress page id.' ),
 						'expected_version'      => $int( 'The version you read before editing. Protects against overwriting newer work.' ),
+						'page'                  => array(
+							'type'        => 'object',
+							'description' => 'The WordPress page itself: title, slug, front_page. Leave out what should not change. '
+								. 'A title is what a search result shows, so "Home" and "About" are rarely the right answer.',
+							'properties'  => array(
+								'title'      => $str( 'The page title.' ),
+								'slug'       => $str( 'The URL slug. Changing it changes the page address.' ),
+								'front_page' => $bool( 'Whether this page is the site root.' ),
+							),
+						),
 						'sections'              => array( 'type' => 'array', 'items' => array( 'type' => 'object' ) ),
 						'content'               => array( 'type' => 'object' ),
 						'template'              => $str( 'New template markup.' ),
@@ -1254,7 +1264,7 @@ final class ToolRegistry {
 			// site_set_header_footer to restore the header and footer exactly as it is now.
 			'authored_css' => $chrome->authored_css(),
 			'used_by'  => $this->pages_using_site_chrome(),
-			'note'     => 'Pages opt in with chrome: "site". Build the navigation once here rather than in every page template.',
+			'note'     => 'Pages opt in with header_footer: "site". Build the navigation once here rather than in every page template.',
 		);
 	}
 
@@ -1282,7 +1292,7 @@ final class ToolRegistry {
 			'scope'      => $result['scope'],
 			'edit_url'   => $result['edit_url'],
 			'used_by'    => $this->pages_using_site_chrome(),
-			'next_step'  => 'Set chrome: "site" on the pages that should use it, then open one and look at the result.',
+			'next_step'  => 'Set header_footer: "site" on the pages that should use it, then open one and look at the result.',
 			'validation' => array(
 				'errors'   => array(),
 				'warnings' => $result['warnings'],
@@ -1673,7 +1683,20 @@ final class ToolRegistry {
 			return $this->fail( 'AIWP_PAGE_INVALID', 'There is no page or post with that id.' );
 		}
 
-		$brief = \AIWP\Designer\SEO\PageBrief::from_array( $args );
+		// Merged, not replaced. Sending one field to fix one finding used to
+		// wipe the rest of the brief — the meta description, the questions, the
+		// concepts — and the next seo_audit went quiet because there was
+		// nothing left to check against. design_metadata had the same fault.
+		$brief = \AIWP\Designer\SEO\PageBrief::from_array(
+			array_merge(
+				\AIWP\Designer\SEO\PageBrief::for_post( $post_id )->to_array(),
+				array_filter(
+					$args,
+					static fn( $value, $key ) => 'page_id' !== $key && null !== $value && '' !== $value && array() !== $value,
+					ARRAY_FILTER_USE_BOTH
+				)
+			)
+		);
 
 		if ( ! $brief->save( $post_id ) ) {
 			return $this->fail( 'AIWP_BRIEF_WRITE_FAILED', 'The brief could not be stored.' );

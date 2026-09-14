@@ -272,6 +272,23 @@ final class PageManager {
 		}
 
 		$page_input = (array) ( $input['page'] ?? array() );
+
+		// A page's title is what a search result shows, and seo_audit reports a
+		// title that says nothing. Without this there was no way to act on that
+		// report except by hand in wp-admin, which is the one place the AI
+		// cannot reach.
+		$post_changes = array();
+		if ( isset( $page_input['title'] ) && '' !== trim( (string) $page_input['title'] ) ) {
+			$post_changes['post_title'] = sanitize_text_field( (string) $page_input['title'] );
+		}
+		if ( isset( $page_input['slug'] ) && '' !== trim( (string) $page_input['slug'] ) ) {
+			$post_changes['post_name'] = sanitize_title( (string) $page_input['slug'] );
+		}
+		if ( array() !== $post_changes ) {
+			$post_changes['ID'] = $page_id;
+			wp_update_post( $post_changes );
+		}
+
 		if ( array_key_exists( 'front_page', $page_input ) ) {
 			if ( $page_input['front_page'] ) {
 				FrontPage::claim( $page_id );

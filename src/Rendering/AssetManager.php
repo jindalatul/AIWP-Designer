@@ -229,11 +229,15 @@ final class AssetManager {
 
 		$behaviors = (array) $this->pages->manifest( $page_id )->get( 'behaviors', array() );
 		if ( array() !== $behaviors ) {
+			// Versioned by the file, not by the plugin version, for the same
+			// reason the baseline CSS is: a behaviour fixed without a version
+			// bump reaches nobody who has already loaded the old one. A stale
+			// modal script is a dialog that no longer traps focus.
 			wp_enqueue_script(
 				'aiwp-behaviors',
 				AIWP_PLUGIN_URL . 'assets/dist/behaviors.js',
 				array(),
-				AIWP_VERSION,
+				(string) $this->file_version( AIWP_PLUGIN_DIR . 'assets/dist/behaviors.js' ),
 				true
 			);
 		}

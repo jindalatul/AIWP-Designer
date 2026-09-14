@@ -201,19 +201,34 @@ final class AIRepeaterField extends \acf_field {
 		);
 	}
 
+
+	/**
+	 * Cache key from the file itself, not the plugin version.
+	 *
+	 * The plugin version sat at 0.3.0 through four releases once, and every
+	 * browser that had already loaded these files kept the old ones. The
+	 * baseline CSS was fixed then; these were missed.
+	 */
+	private static function file_version( string $file ): int {
+		$path = AIWP_PLUGIN_DIR . 'assets/dist/' . $file;
+		$time = file_exists( $path ) ? filemtime( $path ) : 0;
+
+		return false === $time ? 0 : (int) $time;
+	}
+
 	public function input_admin_enqueue_scripts(): void {
 		wp_enqueue_script(
 			'aiwp-repeater',
 			AIWP_PLUGIN_URL . 'assets/dist/repeater.js',
 			array( 'acf-input', 'jquery-ui-sortable' ),
-			AIWP_VERSION,
+			(string) self::file_version( 'repeater.js' ),
 			true
 		);
 		wp_enqueue_style(
 			'aiwp-repeater',
 			AIWP_PLUGIN_URL . 'assets/dist/repeater.css',
 			array( 'acf-input' ),
-			AIWP_VERSION
+			(string) self::file_version( 'repeater.css' )
 		);
 	}
 

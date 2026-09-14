@@ -166,9 +166,39 @@
 			}
 		}
 
+		var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), '
+			+ 'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 		function onKey( e ) {
 			if ( e.key === 'Escape' ) {
 				close();
+				return;
+			}
+
+			if ( e.key !== 'Tab' ) {
+				return;
+			}
+
+			// aria-modal="true" tells a screen reader nothing outside the
+			// dialog exists. Without this, Tab walked straight out of it into
+			// the page behind, which is still there and still clickable — the
+			// promise was made in the markup and broken by the keyboard.
+			var items = dialog.querySelectorAll( FOCUSABLE );
+			if ( ! items.length ) {
+				e.preventDefault();
+				dialog.focus();
+				return;
+			}
+
+			var first = items[ 0 ];
+			var last  = items[ items.length - 1 ];
+
+			if ( e.shiftKey && ( document.activeElement === first || document.activeElement === dialog ) ) {
+				e.preventDefault();
+				last.focus();
+			} else if ( ! e.shiftKey && document.activeElement === last ) {
+				e.preventDefault();
+				first.focus();
 			}
 		}
 

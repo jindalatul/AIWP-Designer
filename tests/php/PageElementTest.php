@@ -49,7 +49,7 @@ final class PageElementTest extends TestCase {
 		$out = PageRenderer::as_page_element( '<section><h1>A</h1></section>', 'uuid-1' );
 
 		$this->assertSame( 1, $this->count_mains( $out ) );
-		$this->assertStringStartsWith( '<main class="aiwp-page"', $out );
+		$this->assertStringStartsWith( '<main id="aiwp-main" class="aiwp-page"', $out );
 	}
 
 	/**
@@ -65,6 +65,29 @@ final class PageElementTest extends TestCase {
 	public function test_a_main_that_is_not_the_outermost_element_is_left_alone(): void {
 		$out = PageRenderer::as_page_element( '<section>x</section><main>y</main>', 'uuid-1' );
 
-		$this->assertStringStartsWith( '<main class="aiwp-page"', $out );
+		$this->assertStringStartsWith( '<main id="aiwp-main" class="aiwp-page"', $out );
+	}
+
+	/**
+	 * A skip link needs somewhere to land.
+	 *
+	 * Every site is asked for one, and every header has to write the target by
+	 * hand. Without one fixed id each header guesses, and the guess lands on
+	 * nothing — a skip link that does not skip is worse than none, because it
+	 * looks like the requirement was met.
+	 */
+	public function test_the_page_element_always_carries_the_skip_target(): void {
+		$plain = PageRenderer::as_page_element( '<section>x</section>', 'uuid-1' );
+		$owned = PageRenderer::as_page_element( '<main class="home"><h1>x</h1></main>', 'uuid-2' );
+
+		$this->assertStringContainsString( 'id="aiwp-main"', $plain );
+		$this->assertStringContainsString( 'id="aiwp-main"', $owned );
+	}
+
+	public function test_an_id_the_template_wrote_is_left_alone(): void {
+		$out = PageRenderer::as_page_element( '<main id="top" class="home"><h1>x</h1></main>', 'uuid-3' );
+
+		$this->assertStringContainsString( 'id="top"', $out );
+		$this->assertStringNotContainsString( 'id="aiwp-main"', $out );
 	}
 }

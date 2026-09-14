@@ -308,6 +308,23 @@ final class TemplateValidator {
 					|| 0 === strpos( $name, 'aria-' )
 					|| 0 === strpos( $name, 'data-aiwp-' );
 
+				// tabindex="-1" only. A dialog has to be able to take focus —
+				// the modal behavior focuses it when it holds nothing focusable,
+				// and role="dialog" without it is a promise the keyboard cannot
+				// keep. Any other value reorders the tab sequence of the whole
+				// page, which is not a thing a template should be able to do.
+				if ( 'tabindex' === $name ) {
+					if ( '-1' !== trim( (string) $attr->nodeValue ) ) {
+						$this->errors[] = sprintf(
+							'tabindex on <%s> may only be "-1", which lets script move focus there. Any other value rewrites the tab order of the page.',
+							$tag
+						);
+						continue;
+					}
+
+					$allowed = true;
+				}
+
 				if ( ! $allowed ) {
 					$this->errors[] = sprintf( 'Attribute "%s" on <%s> is not allowed.', $name, $tag );
 					continue;

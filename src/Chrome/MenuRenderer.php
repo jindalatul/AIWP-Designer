@@ -289,6 +289,19 @@ final class MenuRenderer {
 		$title = '' !== trim( $title ) ? trim( $title ) : ucfirst( $location ) . ' menu';
 		$menu  = wp_get_nav_menu_object( $title );
 
+		// A location that already has a menu keeps it. Matching on the title
+		// alone meant a second call that named the menu differently — or did
+		// not name it at all — built a second menu for the same place and left
+		// the first one behind. The owner opens Appearance > Menus and finds
+		// three menus for two locations, and cannot tell which is live.
+		if ( ! $menu ) {
+			$assigned = (int) ( get_nav_menu_locations()[ $theme_location ] ?? 0 );
+
+			if ( $assigned > 0 ) {
+				$menu = wp_get_nav_menu_object( $assigned ) ?: null;
+			}
+		}
+
 		if ( ! $menu ) {
 			$menu_id = wp_create_nav_menu( $title );
 			if ( is_wp_error( $menu_id ) ) {
@@ -349,6 +362,23 @@ final class MenuRenderer {
 			$result = wp_update_nav_menu_item( $menu_id, $reuse, $args );
 
 			if ( ! is_wp_error( $result ) ) {
+				// WordPress stores an empty title when the label matches the
+				// linked page, so the menu follows a rename. That is a sensible
+				// default and the wrong answer here: a caller that passed
+				// label "Contact" meant the menu says Contact. Without this, a
+				// page renamed for search rewrote the navigation under it — a
+				// three-item nav ended up reading "Request a free SEO audit".
+				$stored = get_post( (int) $result );
+
+				if ( $stored instanceof \WP_Post && $label !== $stored->post_title ) {
+					wp_update_post(
+						array(
+							'ID'         => (int) $result,
+							'post_title' => $label,
+						)
+					);
+				}
+
 				++$added;
 			}
 		}
