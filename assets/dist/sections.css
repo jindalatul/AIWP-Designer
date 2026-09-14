@@ -1,0 +1,72 @@
+.aiwp-sec__say { margin: 0 0 12px; min-height: 20px; font-weight: 600; }
+.aiwp-sec__say.is-ok { color: #0a5c36; }
+.aiwp-sec__say.is-bad { color: #b32d2e; }
+
+.aiwp-sec__list { display: grid; gap: 14px; }
+.aiwp-sec { border: 1px solid #dcdcde; background: #fff; }
+.aiwp-sec.is-mine { border-left: 3px solid #2271b1; }
+.aiwp-sec--new { background: #f6f7f7; border-style: dashed; margin-bottom: 8px; }
+.aiwp-sec--new .aiwp-sec__head { border-bottom: 0; padding-bottom: 0; }
+
+.aiwp-sec__head { display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 12px 14px; border-bottom: 1px solid #f0f0f1; }
+.aiwp-sec__title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.aiwp-sec__title code { font-size: 11px; color: #646970; background: #f0f0f1; padding: 2px 6px; }
+.aiwp-sec__tag { font-size: 11px; color: #646970; text-transform: uppercase; letter-spacing: .06em; }
+/* An icon, not a red link: a row of red words reads as a warning on a screen
+   where nothing is wrong yet. Colour arrives on hover, where the intent is. */
+.aiwp-sec__icon { appearance: none; background: none; border: 0; padding: 4px; cursor: pointer;
+  color: #787c82; line-height: 1; border-radius: 3px; display: inline-flex; }
+.aiwp-sec__icon:hover { color: #b32d2e; background: #fcf0f1; }
+.aiwp-sec__icon:focus-visible { outline: 2px solid #2271b1; outline-offset: 1px; }
+.aiwp-sec__icon .dashicons { width: 18px; height: 18px; font-size: 18px; }
+
+.aiwp-sec__fields { margin: 0; padding: 0; list-style: none; }
+.aiwp-sec__fields li { display: grid; grid-template-columns: minmax(0,1fr) 140px minmax(0,280px) 40px; gap: 12px;
+  align-items: baseline; padding: 9px 14px; border-bottom: 1px solid #f0f0f1; }
+.aiwp-sec__fname { font-weight: 600; }
+.aiwp-sec__ftype { color: #646970; font-size: 12px; }
+.aiwp-sec__fields li .aiwp-sec__icon { justify-self: end; }
+
+/* The template line for this field. It is a button because clicking copies
+   it, but it has to read as code, not as something that navigates. */
+.aiwp-sec__ref { appearance: none; cursor: pointer; text-align: left; max-width: 100%;
+  font-family: Consolas, Monaco, monospace; font-size: 12px; line-height: 1.5;
+  color: #2c3338; background: #f6f7f7; border: 1px solid #dcdcde; border-radius: 3px;
+  padding: 2px 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aiwp-sec__ref:hover { background: #f0f6fc; border-color: #2271b1; color: #043959; }
+.aiwp-sec__ref:focus-visible { outline: 2px solid #2271b1; outline-offset: 1px; }
+.aiwp-sec__ref.is-copied { background: #edfaef; border-color: #00a32a; color: #00450c; }
+.aiwp-sec__ref:disabled { cursor: default; }
+
+.aiwp-sec__add { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 12px 14px; }
+.aiwp-sec__add input { flex: 1 1 180px; min-width: 0; }
+
+.aiwp-sec__veil { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100000;
+  display: flex; align-items: center; justify-content: center; padding: 20px; }
+.aiwp-sec__dialog { background: #fff; max-width: 460px; width: 100%; padding: 24px 26px; }
+.aiwp-sec__dialog h2 { margin: 0 0 10px; font-size: 18px; }
+.aiwp-sec__warn { margin: 0 0 12px; color: #3c434a; line-height: 1.6; }
+.aiwp-sec__used { margin: 0 0 12px; padding: 10px 12px; background: #fcf9e8; border-left: 3px solid #dba617;
+  font-size: 13px; line-height: 1.5; }
+.aiwp-sec__ask { display: block; font-weight: 600; margin: 0 0 16px; }
+.aiwp-sec__input { display: block; width: 100%; margin-top: 6px; }
+.aiwp-sec__buttons { display: flex; justify-content: flex-end; gap: 10px; margin: 0; }
+
+@media (max-width: 782px) {
+  .aiwp-sec__fields li { grid-template-columns: 1fr auto; row-gap: 6px; }
+  .aiwp-sec__ftype { grid-column: 1; }
+  .aiwp-sec__ref { grid-column: 1 / -1; }
+}
+
+/* Just added or just changed. A short, quiet flash: enough to find it, not
+   enough to be a decoration on a page somebody works in. */
+.aiwp-sec.is-fresh { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; }
+.aiwp-sec.is-fresh .aiwp-sec__head { background: #f0f6fc; }
+@media (prefers-reduced-motion: no-preference) {
+  .aiwp-sec.is-fresh { animation: aiwp-sec-fresh 1.6s ease-out 1; }
+  @keyframes aiwp-sec-fresh {
+    from { box-shadow: 0 0 0 3px rgba(34,113,177,.35); }
+    to   { box-shadow: 0 0 0 1px #2271b1; }
+  }
+}

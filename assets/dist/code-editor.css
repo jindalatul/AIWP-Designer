@@ -1,0 +1,76 @@
+.aiwp-code .wp-header-end { margin: 0; }
+.aiwp-code > h1 { padding-bottom: 2px; }
+.aiwp-code__picker { margin: 8px 0 10px; display: flex; align-items: center; gap: 8px; }
+.aiwp-code__picker label { font-weight: 600; }
+.aiwp-code__hint { color: #646970; font-size: 12px; margin-left: auto; }
+
+.aiwp-code__bar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; border-bottom: 1px solid #dcdcde; background: #f0f0f1; padding: 8px 12px 0; border-radius: 3px 3px 0 0; }
+.aiwp-code__tabs { display: flex; gap: 2px; }
+.aiwp-code__tab { appearance: none; border: 1px solid transparent; border-bottom: 0; background: none; font: inherit; font-size: 13px; color: #50575e; padding: 8px 14px; cursor: pointer; border-radius: 3px 3px 0 0; display: inline-flex; align-items: center; gap: 6px; }
+.aiwp-code__tab:hover { color: #1d2327; }
+.aiwp-code__tab.is-active { background: #fff; border-color: #dcdcde; color: #1d2327; font-weight: 600; margin-bottom: -1px; }
+.aiwp-code__badge { display: none; min-width: 17px; height: 17px; line-height: 17px; text-align: center; border-radius: 100px; font-size: 11px; font-weight: 600; }
+.aiwp-code__badge.is-error { display: inline-block; background: #d63638; color: #fff; }
+
+.aiwp-code__actions { display: flex; align-items: center; gap: 10px; padding-bottom: 8px; }
+.aiwp-code__status { font-size: 12px; color: #646970; }
+.aiwp-code__status.is-ok { color: #0a5c36; }
+.aiwp-code__status.is-warn { color: #996800; }
+.aiwp-code__status.is-error { color: #d63638; font-weight: 600; }
+
+.aiwp-code__panes { border: 1px solid #dcdcde; border-top: 0; background: #fff; }
+.aiwp-code__pane { display: none; }
+.aiwp-code__pane.is-active { display: block; }
+/* Tall by default. The script measures the real space left and sets the
+   variable; the calc() is only what shows before that runs. */
+.aiwp-code__pane .CodeMirror { height: var(--aiwp-code-height, calc(100vh - 260px)); min-height: 420px; font-size: 13px; line-height: 1.65; }
+.aiwp-code__plain { width: 100%; height: var(--aiwp-code-height, calc(100vh - 260px)); min-height: 420px; font-family: Menlo, Consolas, monospace; font-size: 13px; border: 0; padding: 12px; }
+
+.aiwp-code__expand { display: inline-flex; align-items: center; gap: 5px; }
+.aiwp-code__expand .dashicons { font-size: 16px; width: 16px; height: 16px; line-height: 1.4; }
+
+/* Full screen. The admin chrome gets out of the way entirely. */
+body.aiwp-code-fullscreen { overflow: hidden; }
+body.aiwp-code-fullscreen #adminmenumain,
+body.aiwp-code-fullscreen #wpadminbar,
+body.aiwp-code-fullscreen #wpfooter,
+body.aiwp-code-fullscreen .aiwp-code > h1,
+body.aiwp-code-fullscreen .aiwp-code > .aiwp-screen-note,
+body.aiwp-code-fullscreen .aiwp-code > .wp-header-end,
+body.aiwp-code-fullscreen .aiwp-code__picker,
+body.aiwp-code-fullscreen .notice { display: none !important; }
+body.aiwp-code-fullscreen #wpcontent { margin-left: 0 !important; padding-left: 0 !important; }
+body.aiwp-code-fullscreen #wpbody-content { padding-bottom: 0 !important; }
+
+#aiwp-code-app.is-fullscreen { position: fixed; inset: 0; z-index: 99999; background: #f0f0f1; display: flex; flex-direction: column; padding: 0; margin: 0; }
+#aiwp-code-app.is-fullscreen .aiwp-code__bar { border-radius: 0; padding: 8px 16px 0; }
+#aiwp-code-app.is-fullscreen .aiwp-code__panes { flex: 1 1 auto; min-height: 0; border-left: 0; border-right: 0; }
+#aiwp-code-app.is-fullscreen .aiwp-code__pane,
+#aiwp-code-app.is-fullscreen .aiwp-code__plain,
+#aiwp-code-app.is-fullscreen .aiwp-code__pane .CodeMirror { height: 100%; min-height: 0; }
+#aiwp-code-app.is-fullscreen .aiwp-code__report { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; max-width: none; max-height: 36vh; overflow: auto; box-shadow: 0 -8px 24px -12px rgba(0,0,0,.35); }
+#aiwp-code-app.is-fullscreen .aiwp-code__list { border-left: 0; border-right: 0; border-bottom: 0; border-radius: 0; }
+
+/* The template language, coloured so it reads as a language rather than noise. */
+.cm-aiwp-field { color: #7f54b3; font-weight: 600; background: rgba(127,84,179,.08); }
+.cm-aiwp-block { color: #b26200; font-weight: 600; background: rgba(178,98,0,.08); }
+.cm-aiwp-bad { color: #d63638; text-decoration: underline wavy; }
+
+.aiwp-gutter { width: 16px; }
+.aiwp-gutter__mark { display: block; width: 16px; text-align: center; font-weight: 700; cursor: help; }
+.aiwp-gutter__mark.is-error { color: #d63638; }
+.aiwp-gutter__mark.is-warn { color: #996800; }
+
+.aiwp-code__report { margin-top: 14px; max-width: 980px; }
+.aiwp-code__list { margin: 0; padding: 0; list-style: none; border: 1px solid #dcdcde; border-radius: 3px; background: #fff; }
+.aiwp-code__list li { display: grid; grid-template-columns: 190px 1fr; gap: 12px; padding: 10px 14px; border-top: 1px solid #f0f0f1; font-size: 13px; align-items: baseline; }
+.aiwp-code__list li:first-child { border-top: 0; }
+.aiwp-code__list li.is-error { border-left: 3px solid #d63638; }
+.aiwp-code__list li.is-warn { border-left: 3px solid #dba617; }
+.aiwp-code__jump { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: #2271b1; cursor: pointer; text-align: left; text-decoration: underline; }
+.aiwp-code__loading { color: #646970; }
+
+@media (max-width: 782px) {
+  .aiwp-code__bar { flex-direction: column; align-items: stretch; }
+  .aiwp-code__list li { grid-template-columns: 1fr; gap: 4px; }
+}

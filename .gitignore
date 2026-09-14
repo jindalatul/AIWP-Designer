@@ -1,0 +1,10 @@
+# A live MCP token. Never commit one.
+.mcp-token
+
+# Downloaded by the test instructions, 5 MB, not ours to ship.
+tests/phpunit.phar
+
+__pycache__/
+.phpunit.result.cache
+.DS_Store
+vendor/

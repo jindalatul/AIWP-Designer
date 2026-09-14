@@ -1,0 +1,81 @@
+/*
+ * AIWP Designer baseline.
+ *
+ * Ships with the plugin and is enqueued before the site's design system, so
+ * an update reaches every site immediately. Values come from the design
+ * system's custom properties; nothing here is site-specific.
+ */
+/* Behaviors hide things with the hidden attribute. Page CSS setting display on
+   the same element must never win, or a closed modal renders open. */
+[hidden]{display:none!important;}
+/* A modal is closed until its behavior has initialised, so it cannot flash open
+   before JavaScript runs, and stays closed when JavaScript never runs at all. */
+[data-aiwp-modal-dialog]:not([data-aiwp-ready]){display:none!important;}
+/* The baseline has to be the weakest thing on the page.
+   `.aiwp-page a` counts as one class plus one tag, which beats any component
+   the AI writes with a single class, so `.aiwp-page a{color:inherit}` was
+   turning every .cr-btn's white text back to body colour — dark text on a dark
+   button. Wrapping the scope in :where() drops it to tag-only weight, so any
+   class wins, which is the whole point of a baseline. */
+.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive{font-family:var(--aiwp-font-body),system-ui,-apple-system,"Segoe UI",sans-serif;font-size:var(--aiwp-font-size-base);color:var(--aiwp-color-text);line-height:1.6;}
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) h1,:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) h2,:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) h3,:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) h4,:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) h5,:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) h6{font-family:var(--aiwp-font-heading),system-ui,sans-serif;line-height:1.15;margin:0 0 .5em;}
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) p{margin:0 0 1em;}
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) img{max-width:100%;height:auto;display:block;}
+:where(.aiwp-page,.aiwp-chrome,.aiwp-article,.aiwp-archive) a{color:inherit;}
+/* Focus stays strong on purpose: a component must not be able to remove the
+   ring by accident. A component that means to restyle it can still say so. */
+.aiwp-page :focus-visible,.aiwp-chrome :focus-visible,.aiwp-article :focus-visible,.aiwp-archive :focus-visible{outline:3px solid var(--aiwp-color-accent);outline-offset:2px;}
+.aiwp-container{width:100%;max-width:var(--aiwp-container-max);margin-inline:auto;padding-inline:var(--aiwp-space-sm);}
+.aiwp-visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+/* Forms are rendered by the plugin. This is a workable default only; page CSS
+   is expected to style .aiwp-form__* to match the page. */
+.aiwp-form__trap{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden;}
+.aiwp-form__fields{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--aiwp-space-sm);}
+.aiwp-form__field{display:flex;flex-direction:column;gap:6px;grid-column:span 6;min-width:0;}
+.aiwp-form__field--half{grid-column:span 3;}
+.aiwp-form__field--third{grid-column:span 2;}
+.aiwp-form__label{font-size:.86rem;font-weight:500;}
+.aiwp-form__required{margin-left:.25em;color:var(--aiwp-color-accent);}
+/* box-sizing and an agreed height, because a browser gives input content-box
+   and select border-box. With the same padding that made a text box 52px tall
+   and a dropdown 44px, so two fields side by side never lined up. */
+.aiwp-form__input{box-sizing:border-box;width:100%;max-width:100%;min-height:50px;font:inherit;font-size:1rem;line-height:1.5;color:inherit;background:#fff;border:1px solid var(--aiwp-color-border);border-radius:var(--aiwp-radius-small);padding:12px 14px;}
+textarea.aiwp-form__input{min-height:0;resize:vertical;}
+select.aiwp-form__input{appearance:none;-webkit-appearance:none;padding-right:40px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 21px) calc(50% + 2px),calc(100% - 15px) calc(50% + 2px);background-size:6px 6px,6px 6px;background-repeat:no-repeat;}
+/* Help text under one field must not push the control in the next one down,
+   so a field lays out from the top and the help sits below the box. */
+.aiwp-form__field>.aiwp-form__help,.aiwp-form__field>.aiwp-form__error{margin-top:2px;}
+.aiwp-form__input:focus-visible{outline:2px solid var(--aiwp-color-accent);outline-offset:1px;border-color:var(--aiwp-color-accent);}
+.aiwp-form__choices{display:grid;gap:8px;}
+.aiwp-form__choice{display:flex;align-items:flex-start;gap:10px;font-size:.94rem;line-height:1.45;}
+.aiwp-form__choice input{margin-top:.25em;flex:0 0 auto;}
+.aiwp-form__help{margin:0;font-size:.82rem;color:var(--aiwp-color-muted);}
+.aiwp-form__error{margin:0;font-size:.82rem;color:#b32d2e;}
+.aiwp-form__field.is-invalid .aiwp-form__input{border-color:#b32d2e;}
+.aiwp-form__errors{margin-bottom:var(--aiwp-space-sm);color:#b32d2e;font-size:.9rem;}
+.aiwp-form__submit{margin-top:var(--aiwp-space-sm);font:inherit;font-size:.95rem;font-weight:600;cursor:pointer;border:0;border-radius:var(--aiwp-radius-medium);padding:14px 26px;background:var(--aiwp-color-accent);color:#fff;}
+.aiwp-form__success{margin:0;font-size:1.05rem;}
+@media (max-width:40rem){.aiwp-form__field--half,.aiwp-form__field--third{grid-column:span 6;}}
+/* The shared header and footer scope their own CSS under this attribute. */
+.aiwp-chrome{position:relative;}
+/* Reveal borrows the site's own timing, so it moves like the rest of the
+   site rather than at a speed the plugin picked. The fallbacks are only
+   for a page whose design system predates these tokens. */
+[data-aiwp-behavior~="reveal"]{opacity:0;transform:translateY(var(--aiwp-motion-travel,16px));transition:opacity var(--aiwp-motion-slow,400ms) var(--aiwp-motion-ease,ease),transform var(--aiwp-motion-slow,400ms) var(--aiwp-motion-ease,ease);}
+[data-aiwp-behavior~="reveal"].is-revealed{opacity:1;transform:none;}
+@media (prefers-reduced-motion: reduce){[data-aiwp-behavior~="reveal"]{opacity:1;transform:none;transition:none;}.aiwp-page *,.aiwp-chrome *,.aiwp-article *,.aiwp-archive *{animation-duration:.001ms!important;transition-duration:.001ms!important;}}
+
+/* Sections a person added that the page template does not print yet. Plain on
+   purpose: visible and correct, using the site's own tokens, until the AI folds
+   them into the design properly. */
+.aiwp-extra{max-width:var(--aiwp-container-max);margin:0 auto;padding:clamp(32px,5vw,64px) 24px;border-top:1px solid var(--aiwp-color-border);}
+.aiwp-extra__h{font-family:var(--aiwp-font-heading);font-size:var(--aiwp-text-xl);line-height:1.2;margin:0 0 clamp(18px,2vw,26px);}
+.aiwp-extra__rows{display:grid;gap:0;}
+.aiwp-extra__row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:clamp(14px,3vw,36px);padding:16px 0;border-top:1px solid var(--aiwp-color-border);align-items:baseline;}
+.aiwp-extra__row:last-child{border-bottom:1px solid var(--aiwp-color-border);}
+.aiwp-extra__k{font-size:var(--aiwp-text-sm);color:var(--aiwp-color-muted);margin:0;}
+.aiwp-extra__v{font-size:var(--aiwp-text-base);line-height:1.6;}
+.aiwp-extra__v>p:first-child{margin-top:0;}
+.aiwp-extra__list{list-style:none;margin:0;padding:0;display:grid;gap:10px;}
+.aiwp-extra__item{line-height:1.55;}
+@media (max-width:40rem){.aiwp-extra__row{grid-template-columns:1fr;gap:4px;}}
