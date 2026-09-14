@@ -6,6 +6,20 @@ Your own AI — Claude, ChatGPT, any MCP client — is the designer. This plugin
 the trusted place where that design is checked, stored, versioned and rendered.
 There is no LLM inside the plugin and no hosted service behind it.
 
+## Install
+
+Download **aiwp-designer-0.10.0.zip** from
+[Releases](https://github.com/jindalatul/AIWP-Designer/releases/latest), then in
+WordPress go to **Plugins → Add New → Upload Plugin** and choose that file.
+
+That ZIP holds the plugin and nothing else. Downloading the repository instead
+gives you the test harness as well, which does not belong in a live site.
+
+You also need [Advanced Custom Fields](https://wordpress.org/plugins/advanced-custom-fields/).
+The free one. ACF Pro is not required.
+
+Requires WordPress 6.6+ and PHP 8.1+.
+
 ## What it is not
 
 Not a page builder. There is no fixed set of sections, no drag-and-drop canvas,

@@ -15,6 +15,7 @@ node_modules/
 vendor/
 docs/
 .git/
+.github/
 .gitignore
 DOCUMENT.md
 IMPLEMENTATION_STATUS.md
@@ -23,6 +24,14 @@ composer.lock
 phpunit.xml
 .phpunit.result.cache
 *.zip
+.DS_Store
+__pycache__/
+# The test harness. It belongs in the repository, never in somebody's
+# wp-content/plugins folder.
+docker-compose.yml
+setup.sh
+reset.sh
+RUNBOOK.md
 EXCLUDES
 
 rm -f "$OUT"
