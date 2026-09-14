@@ -2,7 +2,7 @@
 
 All notable changes to AIWP Designer.
 
-## [0.12.0] — 2026-09-14
+## [0.12.1] — 2026-09-14
 
 Built a three-page site cold from a written specification and fixed
 everything the build ran into. Nine faults. Three of them were invisible
@@ -43,6 +43,13 @@ everything the build ran into. Nine faults. Three of them were invisible
 - **A menu label that matched its page title was dropped,** so renaming
   three pages for search silently rewrote the navigation to match. And
   `site_set_menu` built a second menu for a location that already had one.
+
+- **A url field on a form asked whether this server could reach the site.**
+  It called `wp_http_validate_url()`, which answers a different question:
+  may WordPress make a request to this URL. So `https://my-shop.co.uk/store`
+  came back "Please enter a valid web address" on a box with no DNS, and a
+  staging address on an internal network came back invalid everywhere. On a
+  lead form the person cannot submit at all.
 
 ### Changed
 - `tabindex` is allowed on a template, and only as `-1`. The plugin's own

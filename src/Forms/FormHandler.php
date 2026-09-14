@@ -170,8 +170,8 @@ final class FormHandler {
 					break;
 
 				case 'url':
-					if ( $typed && ! wp_http_validate_url( $value ) ) {
-						$errors[ $name ] = __( 'Please enter a valid web address.', 'aiwp-designer' );
+					if ( $typed && ! self::looks_like_a_web_address( $value ) ) {
+						$errors[ $name ] = __( 'Please enter a valid web address, starting with http:// or https://.', 'aiwp-designer' );
 						$value           = trim( $raw );
 					}
 					break;
@@ -316,5 +316,32 @@ final class FormHandler {
 	private function ip_hash(): string {
 		$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? (string) wp_unslash( $_SERVER['REMOTE_ADDR'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
 		return hash( 'sha256', $ip . '|' . wp_salt( 'auth' ) );
+	}
+
+	/**
+	 * Whether a typed web address is a web address.
+	 *
+	 * This used to ask wp_http_validate_url(), which answers a different
+	 * question: may WordPress make a request to this URL. It refuses private
+	 * and loopback hosts, and its answer depends on what this server can
+	 * resolve — so an ordinary customer site came back invalid on a box with
+	 * no DNS, and a staging address on an internal network came back invalid
+	 * everywhere. On a lead form that is not a warning; the person cannot
+	 * submit at all.
+	 *
+	 * Nothing here fetches the URL. It is stored and read by a person, so the
+	 * question is whether it is well formed and safe to print as a link.
+	 */
+	private static function looks_like_a_web_address( string $url ): bool {
+		$url = trim( $url );
+
+		if ( '' === $url || false === filter_var( $url, FILTER_VALIDATE_URL ) ) {
+			return false;
+		}
+
+		$scheme = strtolower( (string) wp_parse_url( $url, PHP_URL_SCHEME ) );
+		$host   = (string) wp_parse_url( $url, PHP_URL_HOST );
+
+		return in_array( $scheme, array( 'http', 'https' ), true ) && '' !== $host;
 	}
 }

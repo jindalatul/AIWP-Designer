@@ -3,7 +3,7 @@
  * Plugin Name:       AIWP Designer
  * Plugin URI:        https://convertrank.com/aiwp-designer
  * Description:       AI-native website design system for WordPress. Your own AI (Claude / ChatGPT) designs pages through MCP; the plugin is the trusted execution environment.
- * Version:           0.12.0
+ * Version:           0.12.1
  * Requires at least: 6.6
  * Requires PHP:      8.1
  * Author:            Atul Jindal
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AIWP_VERSION', '0.12.0' );
+define( 'AIWP_VERSION', '0.12.1' );
 define( 'AIWP_PLUGIN_FILE', __FILE__ );
 define( 'AIWP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AIWP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
