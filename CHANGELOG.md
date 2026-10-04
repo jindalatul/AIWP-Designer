@@ -2,6 +2,47 @@
 
 All notable changes to AIWP Designer.
 
+## [0.13.0] — 2026-10-04
+
+Articles can now be written as real blog posts through MCP. A post made this
+way opens in the block editor as ordinary blocks anyone can edit, shows in the
+blog list, its category, the feed and search, and renders through the site's
+article design so it looks like the rest of the site.
+
+### Added
+- **Post tools:** `post_create` (always a draft), `post_update`, `post_get`,
+  `post_get_preview_url`, `post_publish` (needs `confirm_publish`, can
+  schedule with `publish_at`) and `terms_list`. Separate from the `page_`
+  tools, which still refuse posts, and the other way round.
+- **`BlockConverter`:** article HTML becomes core block markup — headings,
+  paragraphs, lists with list items, quotes, tables, images, code and
+  separators — written exactly the way the editor saves them. Tested in the
+  editor itself: a 2,200-word article with every block type opened with no
+  "invalid content" warning and no Classic block.
+- **`MarkdownToHtml`:** AI tools can send Markdown. Bare addresses become links.
+- **`write_article` workflow** and its prompt.
+- **Signed previews for draft posts**, the same as pages.
+- **Warnings that say what the site is missing** for articles: an article
+  design, a blog page, a list design, or the block editor itself (the
+  Classic Editor plugin turns it off; the post is still made).
+- The article's meta title, description, keyword, questions and schema types
+  go into the post's brief, so `MetaTags`, `SchemaGraph` and `seo_audit` read
+  them, and an active SEO plugin gets them in its own fields.
+
+### Fixed
+- **Tables broke words in the middle** ("Develop|ers"): the editor's default
+  fixed layout gives every column the same width. Converted tables use auto
+  layout and scroll inside their own box on a phone.
+- **A raw long link or a long word pushed the text column wider than a
+  phone.** The baseline now wraps them inside articles, and lets tables,
+  code and embeds scroll or shrink, at zero weight so any article design
+  still wins.
+- **FAQPage schema ignored the article design's FAQ field** because only the
+  body was read. Posts shown through the article design are now read as
+  rendered, and a fold-out FAQ (`details` / `summary`) counts. When a page has
+  one, a heading that merely ends with a question mark — a call to action —
+  is no longer added to it.
+
 ## [0.12.1] — 2026-09-14
 
 Built a three-page site cold from a written specification and fixed

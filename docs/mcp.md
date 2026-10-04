@@ -69,6 +69,47 @@ which also returns the instructions for that job. Without it you get
 | `page_publish` | — | Makes it public. Needs `confirm_publish: true` |
 | `page_rollback` | — | Restores a version, as a new version |
 
+### Blog posts (articles)
+
+A post keeps the block editor and renders through the article design (ADR-032, ADR-037).
+
+| Tool | Workflow needed | Does |
+|---|---|---|
+| `post_create` | `write_article` | New **draft** post. The body (html or markdown) becomes real blocks |
+| `post_update` | `write_article` | Change a post. Send only what changes. Live posts keep a revision |
+| `post_get` | — | One post: addresses (url, preview, Gutenberg edit link), body as blocks, fields, terms, brief |
+| `post_get_preview_url` | — | Signed URL for a draft post |
+| `post_publish` | — | Makes it public, or schedules it with `publish_at`. Needs `confirm_publish: true` |
+| `terms_list` | — | Categories (ids) and tags |
+
+## `post_create` input
+
+```json
+{
+  "workflow_id": "...",
+  "title": "SEC EDGAR Data and API: How to Access Filings",
+  "body": "## What SEC EDGAR data is\n\n...",
+  "body_format": "markdown",
+  "slug": "sec-edgar-api",
+  "excerpt": "Short summary for lists and search.",
+  "categories": [3],
+  "tags": ["sec filings", "edgar"],
+  "featured_image_id": 8,
+  "fields": { "summary": { "deck": "..." }, "faq": { "items": [ { "question": "...", "answer": "..." } ] } },
+  "meta_title": "...",
+  "meta_description": "...",
+  "primary_keyword": "sec edgar data",
+  "questions": ["Is SEC EDGAR free to use?"],
+  "schema_types": ["Article", "FAQPage"]
+}
+```
+
+- `body_format`: `html` (default), `markdown`, or `blocks` (block markup read back from `post_get`).
+- Do not put the title in the body as an h1; an h1 becomes an h2 and the answer says so.
+- Images in the body must be in the media library (`media_search` / `media_import`). Others are left out, with a warning.
+- `fields` must match `article_get_template`. An unknown field is refused with the list of real ones.
+- The answer lists `warnings`: no article design, no blog page, no list design, block editor off.
+
 ## `page_create` input
 
 ```json

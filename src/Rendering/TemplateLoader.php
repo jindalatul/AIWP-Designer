@@ -53,6 +53,18 @@ final class TemplateLoader {
 			return;
 		}
 
+		// A draft blog post (post_get_preview_url): the token names the post, not a page uuid.
+		$prefix = \AIWP\Designer\Articles\PostWriter::PREVIEW_PREFIX;
+		if ( 0 === strpos( $verified['page_uuid'], $prefix ) ) {
+			$post_id = absint( substr( $verified['page_uuid'], strlen( $prefix ) ) );
+			if ( $post_id && 'post' === get_post_type( $post_id ) ) {
+				$query->set( 'p', $post_id );
+				$query->set( 'post_type', 'post' );
+				$query->set( 'post_status', array( 'draft', 'pending', 'private', 'publish', 'future' ) );
+			}
+			return;
+		}
+
 		$page_id = $this->pages->find_by_uuid( $verified['page_uuid'] );
 		if ( ! $page_id ) {
 			return;

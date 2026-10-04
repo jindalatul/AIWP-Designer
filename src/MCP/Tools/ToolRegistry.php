@@ -851,6 +851,112 @@ final class ToolRegistry {
 				'handler'     => array( $this, 'articles_list' ),
 			),
 
+			// ---- blog posts (articles). Separate from the page_ tools: a post keeps the block
+			// editor and renders through the article design (ADR-032, ADR-037).
+
+			'post_create' => array(
+				'description' => 'Create an article as a WordPress blog post, saved as a DRAFT. The body is turned into real '
+					. 'block-editor blocks (headings, paragraphs, lists, quotes, tables, images, code), so the post opens in '
+					. 'Gutenberg as normal blocks anyone can edit, and it renders through the site article design. '
+					. 'Images in the body must already be in the media library (media_search / media_import). '
+					. 'Do not repeat the title as an h1. Never publish here: use post_publish when the person asks.',
+				'capability'  => 'edit_posts',
+				'workflow'    => 'write_article',
+				'schema'      => $obj(
+					array(
+						'workflow_id'       => $workflow_id,
+						'title'             => $str( 'The post title. Printed as the h1 by the article design.' ),
+						'body'              => $str( 'The article text, without the title.' ),
+						'body_format'       => array( 'type' => 'string', 'enum' => array( 'html', 'markdown', 'blocks' ), 'description' => 'html (default), markdown, or blocks (block markup read back from post_get).' ),
+						'slug'              => $str( 'The address, for example sec-edgar-api. Must not be used by another post or page.' ),
+						'excerpt'           => $str( 'A short summary for lists and search.' ),
+						'categories'        => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ), 'description' => 'Category ids from terms_list.' ),
+						'tags'              => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Tag names. New ones are created.' ),
+						'featured_image_id' => $int( 'A media library image id.' ),
+						'fields'            => array( 'type' => 'object', 'description' => 'The article design extra fields: { section_id: { field_name: value } }, as article_get_template lists them. Put the FAQ here, not in the body, when the design has an FAQ field.' ),
+						'kind'              => $str( 'Which article design. Leave out for the default one.' ),
+						'meta_title'        => $str( 'Under about 60 characters.' ),
+						'meta_description'  => $str( 'Around 150 characters.' ),
+						'primary_keyword'   => $str( 'The one phrase this article is for. Used by seo_audit.' ),
+						'questions'         => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Questions the article answers. Used by seo_audit.' ),
+						'schema_types'      => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Article, FAQPage. Built from the post itself.' ),
+					),
+					array( 'workflow_id', 'title', 'body' )
+				),
+				'handler'     => array( $this, 'post_create' ),
+			),
+
+			'post_update' => array(
+				'description' => 'Change a blog post: title, body, slug, excerpt, fields, categories, tags, featured image, meta. '
+					. 'Send only what changes. A published post keeps its old text as a revision first.',
+				'capability'  => 'edit_posts',
+				'workflow'    => 'write_article',
+				'schema'      => $obj(
+					array(
+						'workflow_id'       => $workflow_id,
+						'post_id'           => $int( 'The post id.' ),
+						'title'             => $str( 'New title.' ),
+						'body'              => $str( 'New article text. Replaces the whole body.' ),
+						'body_format'       => array( 'type' => 'string', 'enum' => array( 'html', 'markdown', 'blocks' ), 'description' => 'html (default), markdown or blocks.' ),
+						'slug'              => $str( 'New address.' ),
+						'excerpt'           => $str( 'New summary.' ),
+						'categories'        => array( 'type' => 'array', 'items' => array( 'type' => 'integer' ), 'description' => 'Replaces the categories.' ),
+						'tags'              => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Replaces the tags.' ),
+						'featured_image_id' => $int( 'A media library image id, or 0 to remove it.' ),
+						'fields'            => array( 'type' => 'object', 'description' => 'Article design fields to change: { section_id: { field_name: value } }.' ),
+						'kind'              => $str( 'Which article design. Leave out for the default one.' ),
+						'meta_title'        => $str( 'Under about 60 characters.' ),
+						'meta_description'  => $str( 'Around 150 characters.' ),
+						'primary_keyword'   => $str( 'The one phrase this article is for.' ),
+						'questions'         => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+						'schema_types'      => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+					),
+					array( 'workflow_id', 'post_id' )
+				),
+				'handler'     => array( $this, 'post_update' ),
+			),
+
+			'post_get' => array(
+				'description' => 'One blog post in full: title, status, addresses (url, preview_url, Gutenberg edit_url), body as block markup, '
+					. 'block counts, categories, tags, featured image, article fields and the SEO brief.',
+				'capability'  => 'edit_posts',
+				'workflow'    => '',
+				'schema'      => $obj( array( 'post_id' => $int( 'The post id.' ), 'kind' => $str( 'Which article design.' ) ), array( 'post_id' ) ),
+				'handler'     => array( $this, 'post_get' ),
+			),
+
+			'post_get_preview_url' => array(
+				'description' => 'A signed URL that shows a draft post through the article design, so you can open and read it in a browser.',
+				'capability'  => 'edit_posts',
+				'workflow'    => '',
+				'schema'      => $obj( array( 'post_id' => $int( 'The post id.' ) ), array( 'post_id' ) ),
+				'handler'     => array( $this, 'post_get_preview_url' ),
+			),
+
+			'post_publish' => array(
+				'description' => 'Make a blog post public, or schedule it with publish_at. Requires confirm_publish true. '
+					. 'Only call this when the person has asked for it. Returns the live url.',
+				'capability'  => 'publish_posts',
+				'workflow'    => '',
+				'schema'      => $obj(
+					array(
+						'post_id'         => $int( 'The post id.' ),
+						'confirm_publish' => $bool( 'Must be true.' ),
+						'publish_at'      => $str( 'Optional date and time to publish later, for example 2026-11-02 09:00 (site time).' ),
+					),
+					array( 'post_id', 'confirm_publish' )
+				),
+				'handler'     => array( $this, 'post_publish' ),
+			),
+
+			'terms_list' => array(
+				'description' => 'The categories (with ids) and the most used tags on this site, so a post goes into a real category.',
+				'capability'  => 'edit_posts',
+				'workflow'    => '',
+				'schema'      => $obj( array() ),
+				'handler'     => array( $this, 'terms_list' ),
+			),
+
 			'media_import' => array(
 				'description' => 'Put an image into the media library. Give exactly one of url, data or svg. '
 					. 'url downloads a public image. data is base64 bytes of a file you have read. '
@@ -2133,6 +2239,36 @@ final class ToolRegistry {
 			'preview_url'     => $this->plugin->page_manager()->preview_url( $page_id ),
 			'url'             => get_permalink( $page_id ),
 		);
+	}
+
+	/** @param array<string,mixed> $args @return array<string,mixed> */
+	public function post_create( array $args, int $user_id ): array {
+		return $this->plugin->posts()->create( $args, $user_id );
+	}
+
+	/** @param array<string,mixed> $args @return array<string,mixed> */
+	public function post_update( array $args, int $user_id ): array {
+		return $this->plugin->posts()->update( $args, $user_id );
+	}
+
+	/** @param array<string,mixed> $args @return array<string,mixed> */
+	public function post_get( array $args, int $user_id ): array {
+		return $this->plugin->posts()->get( $args, $user_id );
+	}
+
+	/** @param array<string,mixed> $args @return array<string,mixed> */
+	public function post_get_preview_url( array $args, int $user_id ): array {
+		return $this->plugin->posts()->preview( $args, $user_id );
+	}
+
+	/** @param array<string,mixed> $args @return array<string,mixed> */
+	public function post_publish( array $args, int $user_id ): array {
+		return $this->plugin->posts()->publish( $args, $user_id );
+	}
+
+	/** @param array<string,mixed> $args @return array<string,mixed> */
+	public function terms_list( array $args ): array {
+		return $this->plugin->posts()->terms();
 	}
 
 	/**

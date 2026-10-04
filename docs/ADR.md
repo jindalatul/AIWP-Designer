@@ -583,3 +583,33 @@ next redesign places them properly instead of leaving them to the fallback.
 **Found while building it:** `to_array()` dropped the flag, so it survived in
 memory and died the moment the schema was stored — which is exactly when it
 needed to exist. Round-tripping through storage is now the first test.
+
+## ADR-037 — Posts get their own tools, and the body is stored as core blocks
+
+**Problem:** an AI tool could design how articles look (ADR-032) but could not
+put an article on the site. Saving its HTML straight into `post_content` would
+have made every article one "Classic" block — readable, but not editable the
+way the person expects in the block editor.
+
+**Decision:** six `post_` tools, separate from the `page_` tools. The body is
+turned into core block markup by `BlockConverter`, written exactly the way the
+editor's own `save()` writes each block, so a post opens as normal headings,
+paragraphs, lists, quotes, tables, images and code. Markdown is accepted and
+becomes HTML first. Images must come from the media library, where they get an
+attachment id; anything else is left out and the answer says so, rather than
+hot-linking someone else's file.
+
+`post_create` only ever makes a draft. `post_publish` needs `confirm_publish`
+and the `publish_posts` capability, like pages: going live is the person's
+decision. Previews use the same signed tokens as pages, with `post:<id>` in
+place of a page uuid.
+
+**Tables use auto layout,** not the editor's default fixed layout. With fixed
+layout WordPress gives each column the same width and breaks words in the
+middle to fit; in a seven-column comparison that is most of the words.
+
+**Found while building it:** `SchemaGraph` read only `post_content` for posts,
+so an FAQ in the article design's own FAQ field never produced FAQPage schema.
+It now reads the rendered article, counts a `details`/`summary` FAQ, and when a
+page has one, stops guessing from headings that end with a question mark — one
+of those was the call to action.

@@ -35,6 +35,17 @@ standard set:
 Every one of these is optional. An article design with nothing but a body and
 good typography is a real choice, and often the right one.
 
+If the articles will come from a content tool with briefs (for example
+ConvertRank), an FAQ repeater (question + answer) and a short takeaways list are
+worth having: those briefs produce both, and the FAQ field gets FAQPage schema.
+Write the FAQ as `<details><summary>question</summary>answer</details>` or as
+question headings; both are read for the schema.
+
+Style what real articles contain, not only what a demo does: a seven-column
+table, a long line of code, a raw link, an image wider than the column. The
+baseline already keeps them from breaking the page on a phone; your design
+decides how they look.
+
 ## Order
 
 1. `design_get_system` — the tokens and the seven `style` decisions. An article

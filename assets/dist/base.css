@@ -35,6 +35,16 @@
 /* Focus stays strong on purpose: a component must not be able to remove the
    ring by accident. A component that means to restyle it can still say so. */
 .aiwp-page :focus-visible,.aiwp-chrome :focus-visible,.aiwp-article :focus-visible,.aiwp-archive :focus-visible{outline:3px solid var(--aiwp-color-accent);outline-offset:2px;}
+/* Article bodies come from the block editor and from AI tools, and real
+   articles contain things short demos never do: a raw link 120 characters
+   long, a product code with no spaces, a seven-column table, a long line of
+   code, an embedded video. Each of those used to push the text column wider
+   than a phone and get cut off. Zero weight, like every rule here: any article
+   design that styles these wins. */
+:where(.aiwp-article) :where(p,li,dd,dt,td,th,figcaption,blockquote,cite,h1,h2,h3,h4,h5,h6,a){overflow-wrap:break-word;}
+:where(.aiwp-article) :where(.wp-block-table){overflow-x:auto;max-width:100%;}
+:where(.aiwp-article) :where(pre){overflow-x:auto;max-width:100%;}
+:where(.aiwp-article) :where(iframe,video,embed,object){max-width:100%;}
 .aiwp-container{width:100%;max-width:var(--aiwp-container-max);margin-inline:auto;padding-inline:var(--aiwp-space-sm);}
 .aiwp-visually-hidden{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
 /* Forms are rendered by the plugin. This is a workable default only; page CSS

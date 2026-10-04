@@ -50,6 +50,8 @@ final class Plugin {
 	private MCPServer $mcp_server;
 	private SchemaRegistrar $schema_registrar;
 	private \AIWP\Designer\Articles\ArticleManager $article_manager;
+
+	private \AIWP\Designer\Articles\PostWriter $post_writer;
 	private ChromeManager $chrome_manager;
 	private MenuRenderer $menu_renderer;
 	private EntryRepository $entry_repository;
@@ -96,6 +98,7 @@ final class Plugin {
 			$this->field_values,
 			$this->schema_registrar
 		);
+		$this->post_writer      = new \AIWP\Designer\Articles\PostWriter( $this->article_manager, $this->field_values );
 	}
 
 	public static function instance(): Plugin {
@@ -203,6 +206,11 @@ final class Plugin {
 
 	public function articles(): \AIWP\Designer\Articles\ArticleManager {
 		return $this->article_manager;
+	}
+
+	/** Writes articles as blog posts for the post_* tools. */
+	public function posts(): \AIWP\Designer\Articles\PostWriter {
+		return $this->post_writer;
 	}
 
 	public function chrome(): ChromeManager {

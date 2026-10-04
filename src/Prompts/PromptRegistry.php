@@ -136,6 +136,15 @@ final class PromptRegistry {
 			),
 			'context'  => array( 'site_context', 'capabilities', 'design_system' ),
 		),
+		'write_article'        => array(
+			'title'    => 'Write an article as a blog post',
+			'prompts'  => array(
+				'core/system',
+				'core/safety',
+				'workflows/write-article',
+			),
+			'context'  => array( 'site_context' ),
+		),
 		'build_archive'        => array(
 			'title'    => 'Design the list of articles',
 			'prompts'  => array(

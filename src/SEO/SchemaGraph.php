@@ -234,6 +234,30 @@ final class SchemaGraph {
 			);
 		}
 
+		// A fold-out FAQ: <details><summary>Question?</summary> answer </details>.
+		// When the page has one, it is the FAQ, and headings that merely end with a
+		// question mark (a call to action, a section title) are not added to it.
+		$folded = array();
+		foreach ( $xpath->query( '//details[summary]' ) as $details ) {
+			if ( ! $details instanceof DOMElement ) {
+				continue;
+			}
+			$summary  = $xpath->query( './summary', $details )->item( 0 );
+			$question = trim( (string) ( $summary ? $summary->textContent : '' ) );
+			$answer   = trim( (string) preg_replace( '/\s+/', ' ', substr( (string) $details->textContent, strlen( (string) ( $summary ? $summary->textContent : '' ) ) ) ) );
+			if ( '' === $question || false === strpos( $question, '?' ) || strlen( $answer ) < 40 ) {
+				continue;
+			}
+			$folded[] = array(
+				'@type'          => 'Question',
+				'name'           => $question,
+				'acceptedAnswer' => array( '@type' => 'Answer', 'text' => $answer ),
+			);
+		}
+		if ( count( $folded ) >= 2 ) {
+			$pairs = $folded;
+		}
+
 		if ( count( $pairs ) < 2 ) {
 			return array();
 		}
@@ -248,6 +272,13 @@ final class SchemaGraph {
 	private function html( \WP_Post $post ): string {
 		if ( $this->pages->is_aiwp_page( $post->ID ) ) {
 			return $this->renderer->render( $post->ID );
+		}
+
+		// A blog post shown through the article design: read the whole rendered article,
+		// so an FAQ in the design's own FAQ field counts, not only the body.
+		$articles = \AIWP\Designer\Plugin::instance()->articles();
+		if ( $articles->applies_to( $post ) ) {
+			return $articles->renderer_for( $post )->render( $post );
 		}
 
 		return (string) apply_filters( 'the_content', (string) $post->post_content ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals

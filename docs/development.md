@@ -18,7 +18,7 @@ immediately. No rebuild, no reinstall.
 ## Tests
 
 ```bash
-./aiwp-designer/scripts/test.sh          # 92 unit tests, no WordPress needed
+./aiwp-designer/scripts/test.sh          # 415 unit tests, no WordPress needed
 ./aiwp-designer/scripts/test.sh --testdox # readable output
 ./aiwp-designer/scripts/lint.sh          # PHP syntax across the plugin
 python3 tests/smoke.py                   # 64 end-to-end checks against the running site
